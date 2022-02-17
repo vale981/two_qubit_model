@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "two_qubit_model"
+version = "1.0.0"
+description = "Operators for a general model of two interacting qubits coupled to two baths."
+authors = ["Valentin Boettcher <hiro at protagon.space>"]
+license = "MIT"
+repository = "https://github.com/vale981/two_qubit_model"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+numpy = "^1.20.0"
+qutip = "^4.6.3"
+
+[tool.poetry.dev-dependencies]
+mypy = "^0.910"
+ipython = "^8.0.1"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.core.masonry.api"
