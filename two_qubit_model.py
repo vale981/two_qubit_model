@@ -202,7 +202,9 @@ class TwoQubitModel:
         """The inter-qubit interaction hamiltonian."""
 
         interaction = self.bare_interaction
-        interaction *= self.γ / (2 * max(interaction.eigenenergies()))
+
+        norm = max(interaction.eigenenergies())
+        interaction *= self.γ / (2 * norm) if norm > 0 else 0
 
         return interaction
 
