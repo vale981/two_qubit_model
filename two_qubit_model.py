@@ -102,9 +102,7 @@ class TwoQubitModel:
     They will be normalized automatically.
     """
 
-    s_vec: NDArray[np.float64] = field(
-        default_factory=lambda: np.array([[1, 0], [1, 0]], dtype=np.float64)
-    )
+    s_vec: list[list[SupportsFloat]] = field(default_factory=lambda: [[1, 0], [1, 0]])
     """
     The :math:`\vec{s}_i` unit vectors with zero y-component of shape
     ``(2,2)``.  Two vectors of form (``[[x,z], [x, z]]``).  They will
@@ -165,7 +163,7 @@ class TwoQubitModel:
     def local_system(self, i: int) -> qt.Qobj:
         """The local system hamiltonian of the ``i``th qubit."""
 
-        if i == 1:
+        if i == 0:
             return 1 / 2 * (qt.tensor(qt.sigmaz(), qt.identity(2)))  # type: ignore
 
         return self.ω_2 / 2 * (qt.tensor(qt.identity(2), qt.sigmaz()))  # type: ignore
@@ -242,7 +240,7 @@ class TwoQubitModel:
         s = np.array(self.s_vec[i]) / np.linalg.norm(np.array(self.s_vec[i]))
         coupling_op = qt.sigmax() * s[0] + qt.sigmaz() * s[1]
 
-        if i == 1:
+        if i == 0:
             return qt.tensor(coupling_op, qt.identity(2))
 
         return qt.tensor(qt.identity(2), coupling_op)
@@ -399,6 +397,21 @@ class TwoQubitModel:
         return cls(**model_dict)
 
     def __eq__(self, other):
+        this_keys = list(self.__dict__.keys())
+        ignored_keys = ["_sigmas"]
+
+        for key in this_keys:
+            if key not in ignored_keys:
+                this_val, other_val = self.__dict__[key], other.__dict__[key]
+
+                same = this_val == other_val
+
+                if isinstance(this_val, np.ndarray):
+                    same = same.all()
+
+                if not same:
+                    return False
+
         return self.__hash__() == other.__hash__()
 
     def hops_config(self):
