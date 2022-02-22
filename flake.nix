@@ -11,12 +11,12 @@
       name = "two_qubit_model";
       shellPackages = pkgs: with pkgs; [ black pyright ];
       python = pkgs: pkgs.python39;
-      shellOverride = (oldAttrs: {
-        shellHook = ''
-                    export PYTHONPATH=/home/hiro/src/hops/:$PYTHONPATH
-                    export PYTHONPATH=/home/hiro/src/stocproc/:$PYTHONPATH
-                    '';
-      });
+      # shellOverride = (oldAttrs: {
+      #   shellHook = ''
+      #               export PYTHONPATH=/home/hiro/src/hops/:$PYTHONPATH
+      #               export PYTHONPATH=/home/hiro/src/stocproc/:$PYTHONPATH
+      #               '';
+      # });
       poetryArgs = {
         projectDir = ./.;
       };
