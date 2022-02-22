@@ -29,6 +29,8 @@ r"""
 
 import dataclasses
 from dataclasses import dataclass, field
+import functools
+import itertools
 from numpy.typing import NDArray
 from typing import Any, Optional, SupportsFloat
 import hops.util.bcf
@@ -160,13 +162,18 @@ class TwoQubitModel:
     def __post_init__(self):
         self._sigmas = [qt.sigmax(), qt.sigmay(), qt.sigmaz()]
 
-    def system(self, i: int) -> qt.Qobj:
-        """The system hamiltonian of the ``i``th qubit."""
+    def local_system(self, i: int) -> qt.Qobj:
+        """The local system hamiltonian of the ``i``th qubit."""
 
         if i == 1:
             return 1 / 2 * (qt.tensor(qt.sigmaz(), qt.identity(2)))  # type: ignore
 
         return self.ω_2 / 2 * (qt.tensor(qt.identity(2), qt.sigmaz()))  # type: ignore
+
+    @property
+    def system(self) -> qt.Qobj:
+        """The system hamiltonian."""
+        return self.local_system(0) + self.local_system(1) + self.interaction
 
     @property
     def bare_interaction(self) -> qt.Qobj:
@@ -186,8 +193,7 @@ class TwoQubitModel:
 
         for strength in (it := np.nditer(self.j, flags=["multi_index"])):
             i, j = it.multi_index
-
-            interaction += float(strength) * qt.tensor(self._sigmas[i], self._sigmas[j])
+            interaction += float(strength) * qt.tensor(self._sigmas[i], self._sigmas[j])  # type: ignore
 
         return interaction
 
@@ -403,9 +409,7 @@ class TwoQubitModel:
         g_2, w_2 = self.bcf_coefficients(1)
 
         system = params.SysP(
-            H_sys=self.system(0).full()
-            + self.system(1).full()
-            + self.interaction.full(),
+            H_sys=self.system.full(),
             L=[self.bath_coupling(0).full(), self.bath_coupling(1).full()],
             g=[g_1, g_2],
             w=[w_1, w_2],
@@ -449,6 +453,59 @@ class TwoQubitModel:
             Eta=[self.driving_process(0), self.driving_process(1)],
             EtaTherm=[self.thermal_process(0), self.thermal_process(1)],
         )
+
+    def is_close_untiary(
+        self,
+        other: "TwoQubitModel",
+        atol: float = 1e-5,
+        rtol=1e-8,
+        max_products: int = 6,
+    ):
+        """
+        A necessary criterion for the two model configuration to be
+        unitarily equivalient.  It tests if any product of
+        ``max_products`` system operators (system hamiltonian and bath
+        couplings) are unitary equivalent.
+
+        The arguments ``atol`` and ``rtol`` are passed to
+        :any:`numpy.allclose`.
+
+        :param max_products: The maximum number of factors considered.
+        """
+
+        this_keys = list(self.__dict__.keys())
+        ignored_keys = ["γ", "ω_2", "j", "s_vec", "description", "_sigmas"]
+
+        for key in this_keys:
+            if (key not in ignored_keys) and self.__dict__[key] != other.__dict__[key]:
+                return False
+
+        self_ops = [self.system, self.bath_coupling(0), self.bath_coupling(1)]
+        other_ops = [other.system, other.bath_coupling(0), other.bath_coupling(1)]
+
+        for n in range(1, max_products):
+            for index in itertools.product(*((range(len(self_ops)),) * n)):
+                A = functools.reduce(
+                    lambda acc, i: acc * self_ops[i],
+                    index,
+                    qt.identity(dims=[2, 2]),
+                )
+
+                B = functools.reduce(
+                    lambda acc, i: acc * other_ops[i],
+                    index,
+                    qt.identity(dims=[2, 2]),
+                )
+
+                if not np.allclose(
+                    A.eigenenergies(),
+                    B.eigenenergies(),
+                    rtol=rtol,
+                    atol=atol,
+                ):
+                    return False
+
+        return True
 
 
 class JSONEncoder(json.JSONEncoder):
