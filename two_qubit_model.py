@@ -420,6 +420,7 @@ class TwoQubitModel:
 
         return self.__hash__() == other.__hash__()
 
+    @property
     def hops_config(self):
         """
         The hops :any:`hops.core.hierarchy_params.HIParams` parameter object
