@@ -196,13 +196,21 @@ class TwoQubitModel:
         return interaction
 
     @property
+    def j_normalized(self) -> NDArray[np.float64]:
+        norm = operator_norm(self.bare_interaction)
+        if norm > 0:
+            return self.j / norm
+
+        return self.j
+
+    @property
     def interaction(self) -> qt.Qobj:
         """The inter-qubit interaction hamiltonian."""
 
         interaction = self.bare_interaction
 
-        norm = max(interaction.eigenenergies())
-        interaction *= self.γ / (2 * norm) if norm > 0 else 0
+        norm = operator_norm(interaction)
+        interaction *= float(self.γ) / (2 * norm) if norm > 0 else 0
 
         return interaction
 
@@ -216,9 +224,7 @@ class TwoQubitModel:
         docstring.
         """
 
-        norm: float = (
-            np.sqrt(max(self.bare_interaction.eigenenergies())) if normalized else 1
-        )
+        norm: float = np.sqrt(operator_norm(self.bare_interaction)) if normalized else 1
 
         j_vecs = []
         q, r = np.linalg.qr(self.j)
@@ -573,3 +579,9 @@ def _object_hook(dct: dict[str, Any]):
             return StocProcTolerances(**dct["value"])
 
     return dct
+
+
+def operator_norm(obj: qt.Qobj) -> float:
+    """Returns the operator norm of ``obj``."""
+
+    return np.sqrt(max(np.abs((obj.dag() * obj).eigenenergies())))
