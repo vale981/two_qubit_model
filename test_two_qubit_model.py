@@ -127,6 +127,7 @@ def test_sd_bcf_norm():
             s=random.choices([1.0, 0.1, 0.5, 0.3], k=2),
             T=[random.uniform(0.1, 4), random.uniform(0.1, 4)],
         )
+        assert_serializable(model)
 
         for i in range(2):
             assert model.spectral_density(i).integral() == pytest.approx(np.pi)
