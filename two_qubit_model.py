@@ -465,7 +465,7 @@ class TwoQubitModel:
         integration = params.IntP(
             t_max=float(self.t_max),
             t_steps=int(float(self.t_max) / float(self.resolution)) + 1,
-            solver_args=default_solver_args,
+            **default_solver_args,
         )
 
         return params.HIParams(
