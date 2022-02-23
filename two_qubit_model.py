@@ -27,18 +27,23 @@ r"""
  are nomalized so that their integral is equal to pi.
  """
 
+import copy
 import dataclasses
 from dataclasses import dataclass, field
 import functools
 import itertools
 from numpy.typing import NDArray
-from typing import Any, Optional, SupportsFloat
+from typing import Any, Optional, SupportsFloat, Type
 import hops.util.bcf
 import hops.util.bcf_fits
 import hops.core.hierarchy_parameters as params
 import numpy as np
 import qutip as qt
-from hops.util.truncation_schemes import TruncationScheme_Power_multi
+from hops.util.abstract_truncation_scheme import TruncationScheme_Simplex
+from hops.util.truncation_schemes import (
+    TruncationScheme_Power_multi,
+    BathMemory,
+)
 import stocproc as sp
 import json
 from functools import singledispatchmethod
@@ -137,6 +142,23 @@ class TwoQubitModel:
     See
     :any:`hops.util.truncation_schemes.TruncationScheme_Power_multi`.
     """
+
+    k_max: int = 10
+    """The kmax parameter for the truncation scheme.
+
+    See
+    :any:`hops.util.abstract_truncation_scheme.TruncationScheme_Simplex`
+    """
+
+    influence_tolerance: SupportsFloat = 1e-2
+    """The ``influecne_tolerance`` parameter for the truncation
+    scheme.
+
+    See :any:`hops.util.truncation_schemes.BathMemory`.
+    """
+
+    truncation_scheme: str = "power"
+    """The truncation scheme to use."""
 
     solver_args: dict[str, Any] = field(default_factory=dict)
     """Extra arguments for :any:`scipy.integrate.solve_ivp`."""
@@ -420,6 +442,17 @@ class TwoQubitModel:
 
         return self.__hash__() == other.__hash__()
 
+    def effective_coupling(self, i: int) -> float:
+        """
+        The effective coupling strength of bath ``i``.  The maximum pre-factor times the bcf scale
+        divided by the minimal damping of the bcf expansion.
+        """
+
+        g, w = self.bcf_coefficients(i)
+
+        term = np.argmax(np.abs(g))
+        return self.bcf_scale(i) * np.real(g[term] / w.real[term])
+
     @property
     def hops_config(self):
         """
@@ -441,6 +474,24 @@ class TwoQubitModel:
             psi0=self.ψ_0.full().flatten(),
         )
 
+        trunc_scheme = TruncationScheme_Power_multi.from_g_w(
+            g=system.g,
+            w=system.w,
+            p=[1, 1],
+            q=[0.5, 0.5],
+            kfac=[float(fac) for fac in self.k_fac],
+        )
+
+        if self.truncation_scheme == "bath_memory":
+            trunc_scheme = BathMemory.from_system(
+                system,
+                nonlinear=True,
+                influence_tolerance=float(self.influence_tolerance),
+            )
+
+        if self.truncation_scheme == "simplex":
+            trunc_scheme = TruncationScheme_Simplex(self.k_max)
+
         hierarchy = params.HiP(
             seed=0,
             nonlinear=True,
@@ -448,13 +499,7 @@ class TwoQubitModel:
             result_type=params.ResultType.ZEROTH_AND_FIRST_ORDER,
             accum_only=False,
             rand_skip=None,
-            truncation_scheme=TruncationScheme_Power_multi.from_g_w(
-                g=system.g,
-                w=system.w,
-                p=[1, 1],
-                q=[0.5, 0.5],
-                kfac=[float(fac) for fac in self.k_fac],
-            ),
+            truncation_scheme=trunc_scheme,
             save_therm_rng_seed=True,
             auto_normalize=True,
         )
@@ -528,6 +573,11 @@ class TwoQubitModel:
                     return False
 
         return True
+
+    def copy(self):
+        """Return a deep copy of the model."""
+
+        return copy.deepcopy(self)
 
 
 class JSONEncoder(json.JSONEncoder):
