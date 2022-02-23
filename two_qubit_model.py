@@ -386,7 +386,7 @@ class TwoQubitModel:
         )
 
     def __hash__(self):
-        return hashlib.sha256(self.to_json().encode("utf-8")).hexdigest()
+        return hashlib.sha256(self.to_json().encode("utf-8")).digest().__hash__()
 
     @classmethod
     def from_json(cls, json_str: str):
