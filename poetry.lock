@@ -292,8 +292,8 @@ typer = "^0.4.0"
 [package.source]
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
-reference = "main"
-resolved_reference = "6c76b65fdcd672dae1eb3d45706fc651b45f8cde"
+reference = "BathMemoryTruncation"
+resolved_reference = "8980d85493f261745723ecbb15db77dafcdd0cd3"
 
 [[package]]
 name = "humanfriendly"
@@ -914,7 +914,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "1f4d89381c1a57b4f03dac867b933a0de465fd7e8e472b28fd63593ee7e24a66"
+content-hash = "ba1521fe96275442a9a2a757978968604e7947d3e0fe7b715f4585a8b800ef1b"
 
 [metadata.files]
 appnope = [
