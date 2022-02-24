@@ -280,6 +280,19 @@ class TwoQubitModel:
 
         return float(self.δ[i]) ** 2
 
+    def η(self, i: int):
+        """The BCF pre-factor :math:`η` of the ``i``th bath."""
+        ω_c = float(self.ω_c[i])
+        s = float(self.s[i])
+        T = float(self.T[i])
+
+        return (
+            1
+            / (ω_c * s) ** s
+            * np.exp(s)
+            * (max([1, np.exp(ω_c * s * 1 / T) - 1]) if T > 0 else 1)
+        )
+
     def bcf(self, i: int) -> hops.util.bcf.OhmicBCF_zeroTemp:
         """
         The normalized zero temperature BCF of the  ``i``th bath.
