@@ -418,6 +418,7 @@ class TwoQubitModel:
                 if key[0] != "_" or key == "__version__"
             },
             cls=JSONEncoder,
+            ensure_ascii=False,
         )
 
     def __hash__(self):
