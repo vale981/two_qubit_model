@@ -293,7 +293,7 @@ typer = "^0.4.0"
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
 reference = "BathMemoryTruncation"
-resolved_reference = "17e7671e42891b52b9fd76262bedfa2a26e5f1f7"
+resolved_reference = "22ee9b9365203d32f0a755123b678f54237ecfd4"
 
 [[package]]
 name = "humanfriendly"
