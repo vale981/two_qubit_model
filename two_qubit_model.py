@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 import functools
 import itertools
 from numpy.typing import NDArray
-from typing import Any, Optional, SupportsFloat, Type
+from typing import Any, Optional, SupportsFloat
 import hops.util.bcf
 import hops.util.bcf_fits
 import hops.core.hierarchy_parameters as params
@@ -45,41 +45,19 @@ from hops.util.truncation_schemes import (
     BathMemory,
 )
 import stocproc as sp
-import json
-from functools import singledispatchmethod
-import hashlib
 from beartype import beartype
+from utility import StocProcTolerances, operator_norm
+from model_base import Model
 
 
 @beartype
-@dataclass
-class StocProcTolerances:
-    """
-    An object to hold tolerances for :any:`stocproc.StocProc`
-    instances.
-    """
-
-    integration: float = 1e-4
-    """Integration tolerance."""
-
-    interpolation: float = 1e-4
-    """Interpolation tolerance."""
-
-
-@beartype
-@dataclass
-class TwoQubitModel:
+@dataclass(eq=False)
+class TwoQubitModel(Model):
     """
     A class to dynamically calculate all the model parameters and
     generate the HOPS configuration.
 
     All attributes can be changed after initialization.
-    """
-
-    __version__: int = 1
-    """
-    The version of the model implementation.  It is increased for
-    breaking changes.
     """
 
     ω_2: SupportsFloat = 1.0
@@ -408,54 +386,6 @@ class TwoQubitModel:
     #                                 Utility                                 #
     ###########################################################################
 
-    def to_json(self):
-        """Returns a json representation of the model configuration."""
-
-        return json.dumps(
-            {
-                key: self.__dict__[key]
-                for key in self.__dict__
-                if key[0] != "_" or key == "__version__"
-            },
-            cls=JSONEncoder,
-            ensure_ascii=False,
-        )
-
-    def __hash__(self):
-        return hashlib.sha256(self.to_json().encode("utf-8")).digest().__hash__()
-
-    @classmethod
-    def from_json(cls, json_str: str):
-        """
-        Tries to instantiate a model config from the json string
-        ``json_str``.
-        """
-
-        model_dict = json.loads(json_str, object_hook=_object_hook)
-        assert (
-            model_dict["__version__"] == cls().__version__
-        ), "Incompatible version detected."
-
-        return cls(**model_dict)
-
-    def __eq__(self, other):
-        this_keys = list(self.__dict__.keys())
-        ignored_keys = ["_sigmas"]
-
-        for key in this_keys:
-            if key not in ignored_keys:
-                this_val, other_val = self.__dict__[key], other.__dict__[key]
-
-                same = this_val == other_val
-
-                if isinstance(this_val, np.ndarray):
-                    same = same.all()
-
-                if not same:
-                    return False
-
-        return self.__hash__() == other.__hash__()
-
     def effective_coupling(self, i: int) -> float:
         """
         The effective coupling strength of bath ``i``.  The maximum pre-factor times the bcf scale
@@ -587,66 +517,3 @@ class TwoQubitModel:
                     return False
 
         return True
-
-    def copy(self):
-        """Return a deep copy of the model."""
-
-        return copy.deepcopy(self)
-
-
-class JSONEncoder(json.JSONEncoder):
-    """
-    A custom encoder to serialize objects occuring in
-    :any:`TwoQubitModel`.
-    """
-
-    @singledispatchmethod
-    def default(self, obj: Any):
-        return super().default(obj)
-
-    @default.register
-    def _(self, arr: np.ndarray):
-        return {"type": "array", "value": arr.tolist()}
-
-    @default.register
-    def _(self, obj: qt.Qobj):
-        return {
-            "type": "Qobj",
-            "value": obj.full(),
-            "dims": obj.dims,
-            "obj_type": obj.type,
-        }
-
-    @default.register
-    def _(self, obj: complex):
-        return {"type": "complex", "re": obj.real, "im": obj.imag}
-
-    @default.register
-    def _(self, obj: StocProcTolerances):
-        return {"type": "StocProcTolerances", "value": dataclasses.asdict(obj)}
-
-
-def _object_hook(dct: dict[str, Any]):
-    """A custom decoder for the types introduced in :any:`JSONEncoder`."""
-    if "type" in dct:
-        type = dct["type"]
-
-        if type == "array":
-            return np.array(dct["value"])
-
-        if type == "Qobj":
-            return qt.Qobj(dct["value"], dims=dct["dims"], type=dct["obj_type"])
-
-        if type == "complex":
-            return dct["re"] + 1j * dct["im"]
-
-        if type == "StocProcTolerances":
-            return StocProcTolerances(**dct["value"])
-
-    return dct
-
-
-def operator_norm(obj: qt.Qobj) -> float:
-    """Returns the operator norm of ``obj``."""
-
-    return np.sqrt(max(np.abs((obj.dag() * obj).eigenenergies())))
