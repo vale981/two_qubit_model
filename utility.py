@@ -79,3 +79,14 @@ def operator_norm(obj: qt.Qobj) -> float:
     """Returns the operator norm of ``obj``."""
 
     return np.sqrt(max(np.abs((obj.dag() * obj).eigenenergies())))
+
+
+def assert_serializable(model):
+    """
+    Serialize and restore ``model`` into json asserting that the
+    objects stay the same.
+    """
+
+    assert model == model.__class__.from_json(
+        model.to_json()
+    ), "Serialization should not change the model."

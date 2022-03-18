@@ -2,17 +2,7 @@ import pytest
 import random
 from two_qubit_model import *
 from qutip import *
-
-
-def assert_serializable(model: TwoQubitModel):
-    """
-    Serialize and restore ``model`` into json asserting that the
-    objects stay the same.
-    """
-
-    assert model == TwoQubitModel.from_json(
-        model.to_json()
-    ), "Serialization should not change the model."
+from utility import assert_serializable
 
 
 class TestBasicConfigs:
