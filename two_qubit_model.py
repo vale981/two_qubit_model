@@ -61,6 +61,8 @@ class TwoQubitModel(Model):
     All attributes can be changed after initialization.
     """
 
+    __version__: int = 2
+
     ω_2: SupportsFloat = 1.0
     """The second oscilator energy gap."""
 

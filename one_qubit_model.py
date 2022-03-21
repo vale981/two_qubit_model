@@ -50,6 +50,8 @@ class QubitModel(Model):
     All attributes can be changed after initialization.
     """
 
+    __version__: int = 1
+
     δ: SupportsFloat = 0.1
     """The bath coupling factor."""
 
