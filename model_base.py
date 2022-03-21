@@ -15,10 +15,6 @@ from hopsflow.util import EnsembleReturn
 import hashlib
 
 
-class MyABC(ABC):
-    pass
-
-
 class Model(ABC):
     """
     A base class with some data management functionality.
