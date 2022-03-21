@@ -18,6 +18,7 @@ r"""
 
 
 from dataclasses import dataclass, field
+import hopsflow
 from numpy.typing import NDArray
 from typing import Any, Optional, SupportsFloat
 import hops.util.bcf
@@ -36,6 +37,7 @@ from beartype import beartype
 from utility import StocProcTolerances
 from model_base import Model
 import scipy.special
+import hopsflow
 
 
 @beartype
@@ -57,7 +59,7 @@ class QubitModel(Model):
     s: SupportsFloat = 1
     """The BCF s parameter."""
 
-    L: qt.Qobj = field(default_factory=lambda: qt.Qobj([[0.0, 1.0], [1.0, 0.0]]))
+    L: qt.Qobj = field(default_factory=lambda: 1 / 2 * qt.sigmax())  # type: ignore
     """
     The :math:`L` coupling operator with shape ``(2, 2)``.
     """
@@ -128,6 +130,11 @@ class QubitModel(Model):
     """
 
     @property
+    def coupling_operators(self) -> list[np.ndarray]:
+        """The bath coupling operators :math:`L`."""
+        return [self.L.full()]
+
+    @property
     def system(self) -> qt.Qobj:
         """The system hamiltonian."""
 
@@ -157,10 +164,16 @@ class QubitModel(Model):
         The BCF scaling factor of the BCF.
         """
 
-        eval = qt.expect(self.L * self.L.dag(), self.ψ_0)
+        eval = qt.expect(self.L * self.L.dag() + self.L.dag() * self.L, self.ψ_0)
         assert isinstance(eval, float)
 
-        return float(self.δ) / (2 * eval.real) * self.bcf_norm
+        return float(self.δ) / eval.real * self.bcf_norm
+
+    @property
+    def bcf_scales(self) -> list[float]:
+        """The scaling factors for the bath correlation functions."""
+
+        return [self.bcf_scale]
 
     @property
     def bcf(self) -> hops.util.bcf.OhmicBCF_zeroTemp:
@@ -225,14 +238,15 @@ class QubitModel(Model):
 
     def bcf_coefficients(
         self, n: Optional[int] = None
-    ) -> tuple[NDArray[np.complex128], NDArray[np.complex128]]:
+    ) -> tuple[list[NDArray[np.complex128]], list[NDArray[np.complex128]]]:
         """
         The normalizedzero temperature BCF fit coefficients
         :math:`G_i,W_i` with ``n`` terms.
         """
 
         n = n or self.bcf_terms
-        return self.bcf.exponential_coefficients(n)
+        g, w = self.bcf.exponential_coefficients(n)
+        return ([g], [w])
 
     @staticmethod
     def basis(n: int = 1) -> qt.Qobj:
@@ -258,7 +272,7 @@ class QubitModel(Model):
 
     @property
     def thermal_process(self) -> Optional[sp.StocProc]:
-        """The thermal noise stochastic process of the ``i``th bath."""
+        """The thermal noise stochastic process."""
 
         if self.T == 0:
             return None
@@ -271,6 +285,15 @@ class QubitModel(Model):
             intpl_tol=self.thermal_process_tolerance.interpolation,
             negative_frequencies=False,
         )
+
+    @property
+    def thermal_processes(self) -> list[Optional[hopsflow.hopsflow.StocProc]]:
+        """
+        The thermal noise stochastic processes for each bath.
+        :any:`None` means zero temperature.
+        """
+
+        return [self.thermal_process]
 
     ###########################################################################
     #                                 Utility                                 #
@@ -288,8 +311,8 @@ class QubitModel(Model):
         system = params.SysP(
             H_sys=self.system.full(),
             L=[self.L.full()],
-            g=[g],
-            w=[w],
+            g=g,
+            w=w,
             bcf_scale=[self.bcf_scale],
             T=[self.T],
             description=self.description,
