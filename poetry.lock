@@ -287,7 +287,7 @@ typer = "^0.4.0"
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
 reference = "BathMemoryTruncation"
-resolved_reference = "45c6cbe8c8fbe4287f5cc9cab4b7143257d04424"
+resolved_reference = "36905de2e4f1b2e9c416c62e7bea20d18907b2aa"
 
 [[package]]
 name = "hopsflow"
@@ -310,7 +310,7 @@ tqdm = "^4.62.3"
 type = "git"
 url = "https://github.com/vale981/hopsflow"
 reference = "main"
-resolved_reference = "02190e54a067806b8b3382f0ab130062e7b9af5c"
+resolved_reference = "aa8edc539d4899fe2e2c83d72a4ae6f17ccc8a78"
 
 [[package]]
 name = "humanfriendly"
@@ -844,7 +844,7 @@ scipy = "^1.7.3"
 type = "git"
 url = "https://github.com/vale981/stocproc"
 reference = "master"
-resolved_reference = "6687f5aa07aea254625bca6c50abf460f190ebc7"
+resolved_reference = "20dee534d76db6f9b9656250dd594db36c5542aa"
 
 [[package]]
 name = "toml"
