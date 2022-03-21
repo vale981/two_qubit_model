@@ -14,6 +14,7 @@
       shellOverride = (oldAttrs: {
         shellHook = ''
                     export PYTHONPATH=/home/hiro/src/hops/:$PYTHONPATH
+                    export PYTHONPATH=/home/hiro/src/hopsflow/:$PYTHONPATH
                     export PYTHONPATH=/home/hiro/src/stocproc/:$PYTHONPATH
                     '';
       });
