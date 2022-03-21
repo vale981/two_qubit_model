@@ -302,7 +302,7 @@ class QubitModel(Model):
     ###########################################################################
 
     @property
-    def hops_config(self):
+    def hops_config(self) -> params.HIParams:
         """
         The hops :any:`hops.core.hierarchy_params.HIParams` parameter object
         for this system.

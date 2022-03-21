@@ -13,6 +13,7 @@ qutip = "^4.6.3"
 hopsflow = { git = "https://github.com/vale981/hopsflow", branch="main" }
 hops = { git = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git", branch="BathMemoryTruncation" }
 beartype = "^0.10.1"
+filelock = "^3.6.0"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.910"

@@ -13,12 +13,16 @@ from hops.core.hierarchy_data import HIData
 import hopsflow
 from hopsflow.util import EnsembleReturn
 import hashlib
+import hops.core.hierarchy_parameters as params
 
 
 class Model(ABC):
     """
     A base class with some data management functionality.
     """
+
+    __base_version__: int = 1
+    """The version of the model base."""
 
     __version__: int = 1
     """
@@ -39,7 +43,11 @@ class Model(ABC):
 
         return JSONEncoder.dumps(
             {key: self.__dict__[key] for key in self.__dict__ if key[0] != "_"}
-            | {"__version__": self.__version__}
+            | {
+                "__version__": self.__version__,
+                "__base_version__": self.__base_version__,
+                "__model__": self.__class__.__name__,
+            }
         )
 
     def __hash__(self):
@@ -52,12 +60,20 @@ class Model(ABC):
         ``json_str``.
         """
 
-        model_dict = json.loads(json_str, object_hook=object_hook)
+        model_dict = JSONEncoder.loads(json_str)
+
         assert (
-            model_dict["__version__"] == cls().__version__
+            model_dict["__model__"] == cls.__name__
+        ), f"You are trying to instantiate the wrong model '{model_dict['__model__']}'."
+
+        assert (
+            model_dict["__version__"] == cls.__version__
+            and model_dict["__base_version__"] == cls.__base_version__
         ), "Incompatible version detected."
 
         del model_dict["__version__"]
+        del model_dict["__base_version__"]
+        del model_dict["__model__"]
 
         return cls(**model_dict)
 
@@ -124,6 +140,14 @@ class Model(ABC):
         """The scaling factors for the bath correlation functions."""
 
         pass
+
+    @property
+    @abstractmethod
+    def hops_config(self) -> params.HIParams:
+        """
+        The hops :any:`hops.core.hierarchy_params.HIParams` parameter object
+        for this system.
+        """
 
     @property
     def hopsflow_system(self) -> hopsflow.hopsflow.SystemParams:

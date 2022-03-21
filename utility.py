@@ -70,6 +70,15 @@ class JSONEncoder(json.JSONEncoder):
         )
 
     @classmethod
+    def loads(cls, string: str, **kwargs) -> dict[str, Any]:
+        """Like :any:`json.loads`, just for this encoder.
+
+        The ``kwargs`` are passed on to :any:`json.loads`.
+        """
+
+        return json.loads(string, object_hook=object_hook, **kwargs)
+
+    @classmethod
     def hash(cls, data, **kwargs):
         """
         Like :any:`dumps`, only that the result is being piped into

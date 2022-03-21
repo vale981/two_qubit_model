@@ -49,6 +49,7 @@ import stocproc as sp
 from beartype import beartype
 from utility import StocProcTolerances, operator_norm
 from model_base import Model
+import hops.core.hierarchy_parameters as params
 
 
 @beartype
@@ -419,7 +420,7 @@ class TwoQubitModel(Model):
     ###########################################################################
 
     @property
-    def hops_config(self):
+    def hops_config(self) -> params.HIParams:
         """
         The hops :any:`hops.core.hierarchy_params.HIParams` parameter object
         for this system.
