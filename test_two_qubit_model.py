@@ -26,8 +26,8 @@ class TestBasicConfigs:
             assert model.bath_coupling(0) == tensor(sigmaz(), identity(2))
             assert model.bath_coupling(1) == tensor(identity(2), sigmaz())
 
-        assert model.bcf_scale(0) == 0.1**2
-        assert model.bcf_scale(1) == 0.2**2
+        assert model.bcf_scale(0) == 0.1 ** 2
+        assert model.bcf_scale(1) == 0.2 ** 2
 
     def test_xy_zz(self):
         model = TwoQubitModel(ω_2=0.11, γ=10, δ=[23, 123], s_vec=[[0, 1], [0, 1]])
@@ -122,7 +122,7 @@ def test_sd_bcf_norm():
         for i in range(2):
             assert model.spectral_density(i).integral() == pytest.approx(np.pi)
             assert model.bcf(0)(0) == 1
-            assert np.sum(model.bcf_coefficients(i)[0]) == pytest.approx(1, rel=1e-2)
+            assert np.sum(model.bcf_coefficients()[0][i]) == pytest.approx(1, rel=1e-2)
 
             tsd = model.thermal_spectral_density(i)
             assert tsd is not None
