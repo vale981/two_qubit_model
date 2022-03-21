@@ -6,6 +6,7 @@ import json
 import numpy as np
 import qutip as qt
 from typing import Any
+import hashlib
 
 
 @beartype
@@ -53,6 +54,37 @@ class JSONEncoder(json.JSONEncoder):
     @default.register
     def _(self, obj: StocProcTolerances):
         return {"type": "StocProcTolerances", "value": dataclasses.asdict(obj)}
+
+    @classmethod
+    def dumps(cls, data, **kwargs) -> str:
+        """Like :any:`json.dumps`, just for this encoder.
+
+        The ``kwargs`` are passed on to :any:`json.dumps`.
+        """
+
+        return json.dumps(
+            data,
+            **kwargs,
+            cls=cls,
+            ensure_ascii=False,
+        )
+
+    @classmethod
+    def hash(cls, data, **kwargs):
+        """
+        Like :any:`dumps`, only that the result is being piped into
+        :any:`hashlib.sha256`. A ``sha256`` hash is being returned.
+        """
+
+        return hashlib.sha256(cls.dumps(data, **kwargs).encode("utf-8"))
+
+    @classmethod
+    def hexhash(cls, data, **kwargs) -> str:
+        """
+        Like :any:`hash`, only that a hexdigest is being returned.
+        """
+
+        return cls.hash(data, **kwargs).hexdigest()
 
 
 def object_hook(dct: dict[str, Any]):

@@ -29,6 +29,7 @@ r"""
 
 import copy
 import dataclasses
+import hopsflow
 from dataclasses import dataclass, field
 import functools
 import itertools
@@ -251,12 +252,24 @@ class TwoQubitModel(Model):
 
         return qt.tensor(qt.identity(2), coupling_op)
 
+    @property
+    def coupling_operators(self) -> list[np.ndarray]:
+        """The bath coupling operators :math:`L`."""
+
+        return [self.bath_coupling(i).full() for i in (0, 1)]
+
     def bcf_scale(self, i: int) -> float:
         """
         The BCF scaling factor of the ``i``th bath.
         """
 
         return float(self.δ[i]) ** 2
+
+    @property
+    def bcf_scales(self) -> list[float]:
+        """The scaling factors for the bath correlation functions."""
+
+        return [self.bcf_scale(i) for i in (1, 2)]
 
     def η(self, i: int):
         """The BCF pre-factor :math:`η` of the ``i``th bath."""
@@ -332,14 +345,22 @@ class TwoQubitModel(Model):
         )
 
     def bcf_coefficients(
-        self, i: int, n: Optional[int] = None
-    ) -> tuple[NDArray[np.complex128], NDArray[np.complex128]]:
+        self, n: Optional[int] = None
+    ) -> tuple[list[NDArray[np.complex128]], list[NDArray[np.complex128]]]:
         """
         The normalizedzero temperature BCF fit coefficients
         :math:`G_i,W_i` the ``i``th bath with ``n`` terms.
         """
-        n = n or self.bcf_terms[i]
-        return self.bcf(i).exponential_coefficients(n)
+        g, w = [], []
+
+        for i in 0, 1:
+            n = n or self.bcf_terms[i]
+            g_n, w_n = self.bcf(i).exponential_coefficients(n)
+
+            g.append(g_n)
+            w.append(w_n)
+
+        return g, w
 
     @staticmethod
     def basis(n_1: int = 1, n_2: int = 1) -> qt.Qobj:
@@ -382,20 +403,18 @@ class TwoQubitModel(Model):
             negative_frequencies=False,
         )
 
+    @property
+    def thermal_processes(self) -> list[Optional[sp.StocProc]]:
+        """
+        The thermal noise stochastic processes for each bath.
+        :any:`None` means zero temperature.
+        """
+
+        return [self.thermal_process(i) for i in (0, 1)]
+
     ###########################################################################
     #                                 Utility                                 #
     ###########################################################################
-
-    def effective_coupling(self, i: int) -> float:
-        """
-        The effective coupling strength of bath ``i``.  The maximum pre-factor times the bcf scale
-        divided by the minimal damping of the bcf expansion.
-        """
-
-        g, w = self.bcf_coefficients(i)
-
-        term = np.argmax(np.abs(g))
-        return self.bcf_scale(i) * np.real(g[term] / w.real[term])
 
     @property
     def hops_config(self):
@@ -404,14 +423,13 @@ class TwoQubitModel(Model):
         for this system.
         """
 
-        g_1, w_1 = self.bcf_coefficients(0)
-        g_2, w_2 = self.bcf_coefficients(1)
+        g, w = self.bcf_coefficients()
 
         system = params.SysP(
             H_sys=self.system.full(),
             L=[self.bath_coupling(0).full(), self.bath_coupling(1).full()],
-            g=[g_1, g_2],
-            w=[w_1, w_2],
+            g=g,
+            w=w,
             bcf_scale=[self.bcf_scale(0), self.bcf_scale(1)],
             T=self.T,
             description=self.description,

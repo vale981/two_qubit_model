@@ -1,13 +1,25 @@
 """A base class for model HOPS configs."""
 
+from typing import Optional
 from utility import JSONEncoder, object_hook
 import numpy as np
+from numpy.typing import NDArray
 import json
 import copy
 import hashlib
+from abc import ABC, abstractmethod
+import qutip as qt
+from hops.core.hierarchy_data import HIData
+import hopsflow
+from hopsflow.util import EnsembleReturn
+import hashlib
 
 
-class Model:
+class MyABC(ABC):
+    pass
+
+
+class Model(ABC):
     """
     A base class with some data management functionality.
     """
@@ -29,11 +41,9 @@ class Model:
     def to_json(self):
         """Returns a json representation of the model configuration."""
 
-        return json.dumps(
+        return JSONEncoder.dumps(
             {key: self.__dict__[key] for key in self.__dict__ if key[0] != "_"}
-            | {"__version__": self.__version__},
-            cls=JSONEncoder,
-            ensure_ascii=False,
+            | {"__version__": self.__version__}
         )
 
     def __hash__(self):
@@ -77,3 +87,131 @@ class Model:
         """Return a deep copy of the model."""
 
         return copy.deepcopy(self)
+
+    @property
+    @abstractmethod
+    def system(self) -> qt.Qobj:
+        """The system hamiltonian."""
+
+        pass
+
+    @property
+    @abstractmethod
+    def coupling_operators(self) -> list[np.ndarray]:
+        """The bath coupling operators :math:`L`."""
+        pass
+
+    @abstractmethod
+    def bcf_coefficients(
+        self, n: Optional[int] = None
+    ) -> tuple[list[NDArray[np.complex128]], list[NDArray[np.complex128]]]:
+        """
+        The normalized zero temperature BCF fit coefficients
+        :math:`[G_i], [W_i]` with ``n`` terms.
+        """
+
+        pass
+
+    @property
+    @abstractmethod
+    def thermal_processes(self) -> list[Optional[hopsflow.hopsflow.StocProc]]:
+        """
+        The thermal noise stochastic processes for each bath.
+        :any:`None` means zero temperature.
+        """
+
+        pass
+
+    @property
+    @abstractmethod
+    def bcf_scales(self) -> list[float]:
+        """The scaling factors for the bath correlation functions."""
+
+        pass
+
+    @property
+    def hopsflow_system(self) -> hopsflow.hopsflow.SystemParams:
+        """The :any:`hopsflow` system config for the system."""
+
+        g, w = self.bcf_coefficients()
+
+        return hopsflow.hopsflow.SystemParams(
+            L=self.coupling_operators,
+            G=[g_i * scale for g_i, scale in zip(g, self.bcf_scales)],
+            W=w,
+            fock_hops=True,
+        )
+
+    def hopsflow_therm(
+        self, τ: NDArray[np.float64]
+    ) -> Optional[hopsflow.hopsflow.ThermalParams]:
+        """The :any:`hopsflow` thermal config for the system."""
+
+        processes = self.thermal_processes
+        scales = self.bcf_scales
+
+        for process, scale in zip(processes, scales):
+            if process:
+                process.set_scale(scale)
+                process.calc_deriv = True
+
+        return hopsflow.hopsflow.ThermalParams(processes, τ)
+
+    ###########################################################################
+    #                            Derived Quantities                           #
+    ###########################################################################
+
+    def system_expectation(
+        self, data: HIData, operator: qt.Qobj, **kwargs
+    ) -> EnsembleReturn:
+        """Calculates the expectation value of ``operator`` from the
+        hierarchy data ``data``.
+
+        The ``kwargs`` are passed on to
+        :any:`hopsflow.util.ensemble_mean`.
+
+        :returns: See :any:`hopsflow.util.ensemble_mean`.
+        """
+
+        operator_hash = JSONEncoder.hexhash(operator).encode("utf-8")
+
+        return hopsflow.util.operator_expectation_ensemble(
+            data.stoc_traj,  # type: ignore
+            operator.full(),
+            kwargs.get("N", data.samples),
+            nonlinear=True,  # always nonlinear
+            save=f"{operator_hash}_{self.__hash__()}",
+        )
+
+    def system_energy(self, data: HIData, **kwargs) -> EnsembleReturn:
+        """Calculates the system energy from the hierarchy data
+        ``data``.
+
+        The ``kwargs`` are passed on to
+        :any:`hopsflow.util.ensemble_mean`.
+
+        :returns: See :any:`hopsflow.util.ensemble_mean`.
+        """
+
+        operator = self.system.full()
+        return self.system_expectation(data, operator, **kwargs)
+
+    def bath_energy_flow(self, data: HIData, **kwargs) -> EnsembleReturn:
+        """Calculates the bath energy flow from the hierarchy data
+        ``data``.
+
+        The ``kwargs`` are passed on to
+        :any:`hopsflow.util.ensemble_mean`.
+
+        :returns: See :any:`hopsflow.util.ensemble_mean`.
+        """
+
+        return hopsflow.hopsflow.heat_flow_ensemble(
+            data.stoc_traj,  # type: ignore
+            data.aux_states,  # type: ignore
+            self.hopsflow_system,
+            kwargs.get("N", data.samples),
+            (data.rng_seed, self.hopsflow_therm),  # type: ignore
+            save=f"flow_{self.__hash__()}",
+            **kwargs,
+        )
