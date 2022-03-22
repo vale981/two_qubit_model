@@ -21,6 +21,7 @@ def model_db(data_path: str = "."):
     Mutations will be synchronized to the file.  Access is managed via
     a lock file.
     """
+
     db_path = Path(data_path) / "model_data.json"
     db_lock = Path(data_path) / "model_data.json.lock"
 
