@@ -2,6 +2,8 @@
 
 import json
 from typing import Any
+
+from hops.core.hierarchy_data import HIData
 from model_base import Model
 from hops.core.integration import HOPSSupervisor
 from contextlib import contextmanager
@@ -67,7 +69,24 @@ def integrate(model: Model, n: int, data_path: str = "."):
 
     with supervisor.get_data(True) as data:
         with model_db(data_path) as db:
-            db[str(hash)] = {
+            db[hash] = {
                 "model_config": model.to_dict(),
                 "data_path": str(Path(data.hdf5_name).relative_to(data_path)),
             }
+
+
+def get_data(
+    model: Model, data_path: str = ".", read_only: bool = True, **kwargs
+) -> HIData:
+    """
+    Get the integration data of the model ``model`` based on the
+    ``data_path``.  If ``read_only`` is :any:`True` the file is opened
+    in read-only mode.  The ``kwargs`` are passed on to :any:`HIData`.
+    """
+
+    hash = model.__hash__()
+    with model_db(data_path) as db:
+        if hash in db and "data_path" in db[hash]:
+            return HIData(db[hash]["data_path"], read_only=read_only, **kwargs)
+        else:
+            raise RuntimeError(f"No data found for model with hash '{hash}'.")
