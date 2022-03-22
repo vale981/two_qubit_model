@@ -1,6 +1,6 @@
 import pytest
 import random
-from one_qubit_model import *
+from models.one_qubit_model import *
 from qutip import *
 from utility import assert_serializable
 import scipy.integrate
