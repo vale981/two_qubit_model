@@ -5,7 +5,7 @@ from beartype import beartype
 import json
 import numpy as np
 import qutip as qt
-from typing import Any
+from typing import Any, Union
 import hashlib
 
 

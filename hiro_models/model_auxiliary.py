@@ -12,10 +12,12 @@ from filelock import FileLock
 from pathlib import Path
 from .one_qubit_model import QubitModel
 from .two_qubit_model import TwoQubitModel
+import stocproc
+import logging
 
 
 @contextmanager
-def model_db(data_path: str = "."):
+def model_db(data_path: str = "./.data"):
     """
     Opens the model database json file in the folder ``data_path`` as
     a dictionary.
@@ -24,16 +26,23 @@ def model_db(data_path: str = "."):
     a lock file.
     """
 
-    db_path = Path(data_path) / "model_data.json"
-    db_lock = Path(data_path) / "model_data.json.lock"
+    path = Path(data_path)
+    path.mkdir(exist_ok=True, parents=True)
 
-    lock = FileLock(db_lock)
-    with lock:
-        with db_path.open("rw") as f:
-            db = json.loads(f.read(), object_hook=model_hook)
+    db_path = path / "model_data.json"
+    db_lock = path / "model_data.json.lock"
+
+    db_path.touch(exist_ok=True)
+
+    with FileLock(db_lock):
+        with db_path.open("r+") as f:
+            data = f.read()
+            db = JSONEncoder.loads(data) if len(data) > 0 else {}
 
             yield db
 
+            f.truncate(0)
+            f.seek(0)
             f.write(JSONEncoder.dumps(db))
 
 
@@ -52,7 +61,7 @@ def model_hook(dct: dict[str, Any]):
     return object_hook(dct)
 
 
-def integrate(model: Model, n: int, data_path: str = "."):
+def integrate(model: Model, n: int, data_path: str = "./.data"):
     """Integrate the hops equations for the model.
 
     A call to :any:`ray.init` may be required.
@@ -60,9 +69,12 @@ def integrate(model: Model, n: int, data_path: str = "."):
     :param n: The number of samples to be integrated.
     """
 
-    hash = model.__hash__()
+    hash = model.hexhash
     supervisor = HOPSSupervisor(
-        model.hops_config, n, data_path=data_path, data_name=str(hash)
+        model.hops_config,
+        n,
+        data_path=data_path,
+        data_name=hash,
     )
 
     supervisor.integrate()
@@ -76,7 +88,7 @@ def integrate(model: Model, n: int, data_path: str = "."):
 
 
 def get_data(
-    model: Model, data_path: str = ".", read_only: bool = True, **kwargs
+    model: Model, data_path: str = "./.data", read_only: bool = True, **kwargs
 ) -> HIData:
     """
     Get the integration data of the model ``model`` based on the
@@ -84,7 +96,8 @@ def get_data(
     in read-only mode.  The ``kwargs`` are passed on to :any:`HIData`.
     """
 
-    hash = model.__hash__()
+    hash = model.hexhash
+
     with model_db(data_path) as db:
         if hash in db and "data_path" in db[hash]:
             return HIData(db[hash]["data_path"], read_only=read_only, **kwargs)

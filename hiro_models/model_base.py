@@ -53,7 +53,12 @@ class Model(ABC):
         return JSONEncoder.dumps(self.to_dict())
 
     def __hash__(self):
-        return hashlib.sha256(self.to_json().encode("utf-8")).digest().__hash__()
+        return JSONEncoder.hash(self.to_dict()).__hash__()
+
+    @property
+    def hexhash(self):
+        """A hexadecimal representation of the model hash."""
+        return JSONEncoder.hexhash(self.to_dict())
 
     @classmethod
     def from_dict(cls, model_dict: dict[str, Any]):
