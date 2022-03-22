@@ -1,6 +1,6 @@
 """A base class for model HOPS configs."""
 
-from typing import Optional
+from typing import Any, Optional
 from utility import JSONEncoder, object_hook
 import numpy as np
 from numpy.typing import NDArray
@@ -38,29 +38,28 @@ class Model(ABC):
     #                                 Utility                                 #
     ###########################################################################
 
+    def to_dict(self):
+        """Returns a dictionary representation of the model configuration."""
+
+        return {key: self.__dict__[key] for key in self.__dict__ if key[0] != "_"} | {
+            "__version__": self.__version__,
+            "__base_version__": self.__base_version__,
+            "__model__": self.__class__.__name__,
+        }
+
     def to_json(self):
         """Returns a json representation of the model configuration."""
 
-        return JSONEncoder.dumps(
-            {key: self.__dict__[key] for key in self.__dict__ if key[0] != "_"}
-            | {
-                "__version__": self.__version__,
-                "__base_version__": self.__base_version__,
-                "__model__": self.__class__.__name__,
-            }
-        )
+        return JSONEncoder.dumps(self.to_dict)
 
     def __hash__(self):
         return hashlib.sha256(self.to_json().encode("utf-8")).digest().__hash__()
 
     @classmethod
-    def from_json(cls, json_str: str):
+    def from_dict(cls, model_dict: dict[str, Any]):
         """
-        Tries to instantiate a model config from the json string
-        ``json_str``.
+        Tries to instantiate a model config from the dictionary ``dictionary``.
         """
-
-        model_dict = JSONEncoder.loads(json_str)
 
         assert (
             model_dict["__model__"] == cls.__name__
@@ -76,6 +75,17 @@ class Model(ABC):
         del model_dict["__model__"]
 
         return cls(**model_dict)
+
+    @classmethod
+    def from_json(cls, json_str: str):
+        """
+        Tries to instantiate a model config from the json string
+        ``json_str``.
+        """
+
+        model_dict = JSONEncoder.loads(json_str)
+
+        return cls.from_dict(model_dict)
 
     def __eq__(self, other):
         this_keys = list(self.__dict__.keys())
