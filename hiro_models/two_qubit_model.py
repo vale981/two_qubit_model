@@ -48,7 +48,7 @@ from hops.util.truncation_schemes import (
 import stocproc as sp
 from beartype import beartype
 from utility import StocProcTolerances, operator_norm
-from model_base import Model
+from .model_base import Model
 import hops.core.hierarchy_parameters as params
 
 

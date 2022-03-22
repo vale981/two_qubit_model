@@ -35,7 +35,7 @@ import stocproc as sp
 
 from beartype import beartype
 from utility import StocProcTolerances
-from model_base import Model
+from .model_base import Model
 import scipy.special
 import hopsflow
 

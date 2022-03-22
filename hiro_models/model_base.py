@@ -50,7 +50,7 @@ class Model(ABC):
     def to_json(self):
         """Returns a json representation of the model configuration."""
 
-        return JSONEncoder.dumps(self.to_dict)
+        return JSONEncoder.dumps(self.to_dict())
 
     def __hash__(self):
         return hashlib.sha256(self.to_json().encode("utf-8")).digest().__hash__()

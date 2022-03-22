@@ -1,6 +1,6 @@
 import pytest
 import random
-from models.two_qubit_model import *
+from hiro_models.two_qubit_model import *
 from qutip import *
 from utility import assert_serializable
 

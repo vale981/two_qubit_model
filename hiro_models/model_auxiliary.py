@@ -4,14 +4,14 @@ import json
 from typing import Any
 
 from hops.core.hierarchy_data import HIData
-from model_base import Model
+from .model_base import Model
 from hops.core.integration import HOPSSupervisor
 from contextlib import contextmanager
 from utility import JSONEncoder, object_hook
 from filelock import FileLock
 from pathlib import Path
-from one_qubit_model import QubitModel
-from two_qubit_model import TwoQubitModel
+from .one_qubit_model import QubitModel
+from .two_qubit_model import TwoQubitModel
 
 
 @contextmanager
