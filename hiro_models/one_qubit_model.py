@@ -161,15 +161,24 @@ class QubitModel(Model):
         )
 
     @property
-    def bcf_scale(self) -> float:
-        """
-        The BCF scaling factor of the BCF.
+    def L_expect(self) -> float:
+        r"""
+        The expecation value :math:`\langle L^†L + LL^†\rangle` in
+        the inital state.
         """
 
         eval = qt.expect(self.L * self.L.dag() + self.L.dag() * self.L, self.ψ_0)
         assert isinstance(eval, float)
 
-        return float(self.δ) / eval.real * self.bcf_norm
+        return eval
+
+    @property
+    def bcf_scale(self) -> float:
+        """
+        The BCF scaling factor of the BCF.
+        """
+
+        return float(self.δ) / self.L_expect * self.bcf_norm
 
     @property
     def bcf_scales(self) -> list[float]:
@@ -321,14 +330,6 @@ class QubitModel(Model):
             psi0=self.ψ_0.full().flatten(),
         )
 
-        trunc_scheme = TruncationScheme_Power_multi.from_g_w(
-            g=system.g,
-            w=system.w,
-            p=[1, 1],
-            q=[0.5, 0.5],
-            kfac=[float(self.k_fac)],
-        )
-
         if self.truncation_scheme == "bath_memory":
             trunc_scheme = BathMemory.from_system(
                 system,
@@ -336,8 +337,17 @@ class QubitModel(Model):
                 influence_tolerance=float(self.influence_tolerance),
             )
 
-        if self.truncation_scheme == "simplex":
+        elif self.truncation_scheme == "simplex":
             trunc_scheme = TruncationScheme_Simplex(self.k_max)
+
+        else:
+            trunc_scheme = TruncationScheme_Power_multi.from_g_w(
+                g=system.g,
+                w=system.w,
+                p=[1, 1],
+                q=[0.5, 0.5],
+                kfac=[float(self.k_fac)],
+            )
 
         hierarchy = params.HiP(
             seed=0,

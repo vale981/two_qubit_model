@@ -100,6 +100,8 @@ def get_data(
 
     with model_db(data_path) as db:
         if hash in db and "data_path" in db[hash]:
-            return HIData(db[hash]["data_path"], read_only=read_only, **kwargs)
+            return HIData(
+                Path(data_path) / db[hash]["data_path"], read_only=read_only, **kwargs
+            )
         else:
             raise RuntimeError(f"No data found for model with hash '{hash}'.")
