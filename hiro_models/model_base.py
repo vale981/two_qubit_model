@@ -1,7 +1,7 @@
 """A base class for model HOPS configs."""
 
 from typing import Any, Optional
-from utility import JSONEncoder, object_hook
+from .utility import JSONEncoder, object_hook
 import numpy as np
 from numpy.typing import NDArray
 import json
