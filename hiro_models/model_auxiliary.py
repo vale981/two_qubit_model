@@ -12,8 +12,7 @@ from filelock import FileLock
 from pathlib import Path
 from .one_qubit_model import QubitModel
 from .two_qubit_model import TwoQubitModel
-import stocproc
-import logging
+from collections.abc import Sequence
 
 
 @contextmanager
@@ -61,6 +60,17 @@ def model_hook(dct: dict[str, Any]):
     return object_hook(dct)
 
 
+def integrate_multi(models: Sequence[Model], *args, **kwargs):
+    """Integrate the hops equations for the ``models``.
+    Like :any:`integrate` just for many models.
+
+    A call to :any:`ray.init` may be required.
+    """
+
+    for model in models:
+        integrate(model, *args, *kwargs)
+
+
 def integrate(model: Model, n: int, data_path: str = "./.data"):
     """Integrate the hops equations for the model.
 
@@ -70,6 +80,10 @@ def integrate(model: Model, n: int, data_path: str = "./.data"):
     """
 
     hash = model.hexhash
+
+    # with model_db(data_path) as db:
+    #     if hash in db and "data" db[hash]
+
     supervisor = HOPSSupervisor(
         model.hops_config,
         n,

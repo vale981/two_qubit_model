@@ -287,7 +287,7 @@ typer = "^0.4.0"
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
 reference = "BathMemoryTruncation"
-resolved_reference = "36905de2e4f1b2e9c416c62e7bea20d18907b2aa"
+resolved_reference = "2f5600c2044a9506e7eceb03c8a50706586884a3"
 
 [[package]]
 name = "hopsflow"
