@@ -68,15 +68,16 @@ def integrate_multi(models: Sequence[Model], *args, **kwargs):
     """
 
     for model in models:
-        integrate(model, *args, *kwargs)
+        integrate(model, *args, **kwargs)
 
 
-def integrate(model: Model, n: int, data_path: str = "./.data"):
+def integrate(model: Model, n: int, data_path: str = "./.data", clear_pd: bool = False):
     """Integrate the hops equations for the model.
 
     A call to :any:`ray.init` may be required.
 
     :param n: The number of samples to be integrated.
+    :param clear_pd: Whether to clear the data file and redo the integration.
     """
 
     hash = model.hexhash
@@ -91,7 +92,7 @@ def integrate(model: Model, n: int, data_path: str = "./.data"):
         data_name=hash,
     )
 
-    supervisor.integrate()
+    supervisor.integrate(clear_pd)
 
     with supervisor.get_data(True) as data:
         with model_db(data_path) as db:
