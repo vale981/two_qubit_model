@@ -348,6 +348,7 @@ class QubitModel(Model):
                 q=[0.5, 0.5],
                 kfac=[float(self.k_fac)],
             )
+            print(self.k_fac)
 
         hierarchy = params.HiP(
             seed=0,

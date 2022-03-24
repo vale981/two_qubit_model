@@ -24,6 +24,9 @@ class Model(ABC):
     ψ_0: qt.Qobj
     """The initial state."""
 
+    description: str = ""
+    """A free-form description of the model instance."""
+
     __base_version__: int = 1
     """The version of the model base."""
 
@@ -32,6 +35,9 @@ class Model(ABC):
     The version of the model implementation.  It is increased for
     breaking changes.
     """
+
+    _ignored_keys: list[str] = ["_sigmas", "description"]
+    """Keys that are ignored when comparing or hashing models."""
 
     def __init__(self, *_, **__):
         del _, __
@@ -50,18 +56,34 @@ class Model(ABC):
             "__model__": self.__class__.__name__,
         }
 
+    def to_hashable_dict(self):
+        """
+        Returns a dictionary representation of the model configuration
+        without unecessary keys.
+        """
+
+        return {
+            key: self.__dict__[key]
+            for key in self.__dict__
+            if key[0] != "_" and key not in self._ignored_keys
+        } | {
+            "__version__": self.__version__,
+            "__base_version__": self.__base_version__,
+            "__model__": self.__class__.__name__,
+        }
+
     def to_json(self):
         """Returns a json representation of the model configuration."""
 
         return JSONEncoder.dumps(self.to_dict())
 
     def __hash__(self):
-        return JSONEncoder.hash(self.to_dict()).__hash__()
+        return JSONEncoder.hash(self.to_hashable_dict()).__hash__()
 
     @property
     def hexhash(self):
         """A hexadecimal representation of the model hash."""
-        return JSONEncoder.hexhash(self.to_dict())
+        return JSONEncoder.hexhash(self.to_hashable_dict())
 
     @classmethod
     def from_dict(cls, model_dict: dict[str, Any]):
@@ -97,10 +119,9 @@ class Model(ABC):
 
     def __eq__(self, other):
         this_keys = list(self.__dict__.keys())
-        ignored_keys = ["_sigmas"]
 
         for key in this_keys:
-            if key not in ignored_keys:
+            if key not in self._ignored_keys:
                 this_val, other_val = self.__dict__[key], other.__dict__[key]
 
                 same = this_val == other_val
@@ -213,11 +234,12 @@ class Model(ABC):
         """
 
         operator_hash = JSONEncoder.hexhash(operator)
+        N, kwargs = _get_N_kwargs(kwargs, data)
 
         return hopsflow.util.operator_expectation_ensemble(
             iter(data.stoc_traj),  # type: ignore
             operator.full(),
-            kwargs.get("N", data.samples),
+            N,
             normalize=True,  # always nonlinear
             save=f"{operator_hash}_{self.hexhash}",
             **kwargs,
