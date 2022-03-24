@@ -253,7 +253,7 @@ class Model(ABC):
             data.aux_states,  # type: ignore
             self.hopsflow_system,
             N,
-            (iter(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
+            (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
             save=f"flow_{self.hexhash}",
             **kwargs,
         )
@@ -275,7 +275,7 @@ class Model(ABC):
             data.aux_states,  # type: ignore
             self.hopsflow_system,
             N,
-            (iter(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
+            (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
             save=f"interaction_{self.hexhash}",
             **kwargs,
         )
@@ -298,7 +298,7 @@ class Model(ABC):
             data.aux_states,  # type: ignore
             self.hopsflow_system,
             N,
-            (iter(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
+            (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
             save=f"flow_{self.hexhash}",  # under the hood the flow is used
             **kwargs,
         )
