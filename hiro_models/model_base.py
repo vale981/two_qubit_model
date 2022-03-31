@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 import qutip as qt
 from hops.core.hierarchy_data import HIData
 import hopsflow
-from hopsflow.util import EnsembleReturn, ensemble_return_add, ensemble_return_scale
+from hopsflow.util import EnsembleValue, ensemble_return_add, ensemble_return_scale
 import hashlib
 import hops.core.hierarchy_parameters as params
 
@@ -196,8 +196,9 @@ class Model(ABC):
 
         return hopsflow.hopsflow.SystemParams(
             L=self.coupling_operators,
-            G=[g_i * scale for g_i, scale in zip(g, self.bcf_scales)],
+            G=g,
             W=w,
+            bcf_scale=self.bcf_scales,
             fock_hops=True,
             nonlinear=True,
         )
@@ -223,7 +224,7 @@ class Model(ABC):
 
     def system_expectation(
         self, data: HIData, operator: qt.Qobj, **kwargs
-    ) -> EnsembleReturn:
+    ) -> EnsembleValue:
         """Calculates the expectation value of ``operator`` from the
         hierarchy data ``data``.
 
@@ -237,15 +238,15 @@ class Model(ABC):
         N, kwargs = _get_N_kwargs(kwargs, data)
 
         return hopsflow.util.operator_expectation_ensemble(
-            iter(data.stoc_traj),  # type: ignore
+            data.valid_sample_iterator(data.stoc_traj),  # type: ignore
             operator.full(),
-            N,
             normalize=True,  # always nonlinear
             save=f"{operator_hash}_{self.hexhash}",
+            N=N,
             **kwargs,
         )
 
-    def system_energy(self, data: HIData, **kwargs) -> EnsembleReturn:
+    def system_energy(self, data: HIData, **kwargs) -> EnsembleValue:
         """Calculates the system energy from the hierarchy data
         ``data``.
 
@@ -258,7 +259,7 @@ class Model(ABC):
         operator = self.system
         return self.system_expectation(data, operator, real=True, **kwargs)
 
-    def bath_energy_flow(self, data: HIData, **kwargs) -> EnsembleReturn:
+    def bath_energy_flow(self, data: HIData, **kwargs) -> EnsembleValue:
         """Calculates the bath energy flow from the hierarchy data
         ``data``.
 
@@ -271,16 +272,16 @@ class Model(ABC):
         N, kwargs = _get_N_kwargs(kwargs, data)
 
         return hopsflow.hopsflow.heat_flow_ensemble(
-            data.stoc_traj,  # type: ignore
-            data.aux_states,  # type: ignore
+            data.valid_sample_iterator(data.stoc_traj),  # type: ignore
+            data.valid_sample_iterator(data.aux_states),  # type: ignore
             self.hopsflow_system,
-            N,
             (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
             save=f"flow_{self.hexhash}",
+            N=N,
             **kwargs,
         )
 
-    def interaction_energy(self, data: HIData, **kwargs) -> EnsembleReturn:
+    def interaction_energy(self, data: HIData, **kwargs) -> EnsembleValue:
         """Calculates interaction energy from the hierarchy data
         ``data``.
 
@@ -293,16 +294,16 @@ class Model(ABC):
         N, kwargs = _get_N_kwargs(kwargs, data)
 
         return hopsflow.hopsflow.interaction_energy_ensemble(
-            data.stoc_traj,  # type: ignore
-            data.aux_states,  # type: ignore
+            data.valid_sample_iterator(data.stoc_traj),  # type: ignore
+            data.valid_sample_iterator(data.aux_states),  # type: ignore
             self.hopsflow_system,
-            N,
             (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
+            N=N,
             save=f"interaction_{self.hexhash}",
             **kwargs,
         )
 
-    def bath_energy(self, data: HIData, **kwargs) -> EnsembleReturn:
+    def bath_energy(self, data: HIData, **kwargs) -> EnsembleValue:
         """Calculates bath energy by integrating the bath energy flow
         calculated from the ``data``.
 
@@ -316,18 +317,18 @@ class Model(ABC):
 
         return hopsflow.hopsflow.bath_energy_from_flow(
             np.array(data.time),
-            data.stoc_traj,  # type: ignore
-            data.aux_states,  # type: ignore
+            data.valid_sample_iterator(data.stoc_traj),  # type: ignore
+            data.valid_sample_iterator(data.aux_states),  # type: ignore
             self.hopsflow_system,
-            N,
             (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
             save=f"flow_{self.hexhash}",  # under the hood the flow is used
+            N=N,
             **kwargs,
         )
 
     def interaction_energy_from_conservation(
         self, data: HIData, **kwargs
-    ) -> EnsembleReturn:
+    ) -> EnsembleValue:
         """Calculates the interaction energy from energy conservations
         calculated from the ``data``.
 
@@ -337,23 +338,11 @@ class Model(ABC):
         :returns: See :any:`hopsflow.bath_energy_from_flow`.
         """
 
-        system = ensemble_return_scale(-1, self.system_energy(data, **kwargs))
-        bath = ensemble_return_scale(-1, self.bath_energy(data, **kwargs))
-        total_raw = qt.expect(self.system, self.ψ_0)
+        system = self.system_energy(data, **kwargs)
+        bath = self.bath_energy(data, **kwargs)
+        total = float(qt.expect(self.system, self.ψ_0))
 
-        if isinstance(bath, list):
-            total = [
-                (N, total_raw * np.ones_like(bath_val), np.zeros_like(bath_val))
-                for N, bath_val, _ in bath
-            ]
-        else:
-            total = (
-                bath[0],
-                total_raw * np.ones_like(bath[1]),
-                np.zeros_like(bath[1]),
-            )
-
-        return ensemble_return_add(ensemble_return_add(total, bath), system)
+        return total - (system + bath)
 
 
 def _get_N_kwargs(kwargs: dict, data: HIData) -> tuple[int, dict]:

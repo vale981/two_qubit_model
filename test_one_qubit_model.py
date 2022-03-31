@@ -2,7 +2,7 @@ import pytest
 import random
 from hiro_models.one_qubit_model import *
 from qutip import *
-from utility import assert_serializable
+from hiro_models.utility import assert_serializable
 import scipy.integrate
 
 

@@ -11,7 +11,7 @@ python = ">=3.9,<3.11"
 numpy = "^1.20.0"
 qutip = "^4.6.3"
 hopsflow = { git = "https://github.com/vale981/hopsflow", branch="main" }
-hops = { git = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git", branch="BathMemoryTruncation" }
+hops = { git = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git", branch="main" }
 beartype = "^0.10.1"
 filelock = "^3.6.0"
 
