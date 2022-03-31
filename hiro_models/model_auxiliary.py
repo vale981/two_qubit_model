@@ -1,6 +1,5 @@
 """Functionality to integrate :any:`Model` instances and analyze the results."""
 
-import json
 from typing import Any
 
 from hops.core.hierarchy_data import HIData
@@ -13,6 +12,8 @@ from pathlib import Path
 from .one_qubit_model import QubitModel
 from .two_qubit_model import TwoQubitModel
 from collections.abc import Sequence
+import shutil
+import logging
 
 
 @contextmanager
@@ -120,3 +121,33 @@ def get_data(
             )
         else:
             raise RuntimeError(f"No data found for model with hash '{hash}'.")
+
+
+def import_results(data_path: str = "./.data", other_data_path: str = "./.data_other"):
+    """
+    Imports results from the ``other_data_path`` into the
+    ``other_data_path`` if the files are newer.
+    """
+
+    with model_db(data_path) as db:
+        with model_db(other_data_path) as other_db:
+            for hash, data in other_db.items():
+                do_import = False
+
+                if hash not in db:
+                    do_import = True
+                elif "data_path" not in db[hash]:
+                    do_import = True
+                elif (Path(data_path) / db[hash]["data_path"]).stat().st_size < (
+                    Path(other_data_path) / data["data_path"]
+                ).stat().st_size:
+                    do_import = True
+
+                if do_import:
+                    this_path = Path(data_path) / data["data_path"]
+                    other_path = Path(other_data_path) / data["data_path"]
+
+                    this_path.parents[0].mkdir(exist_ok=True, parents=True)
+                    logging.info(f"Importing {other_path} to {this_path}.")
+                    shutil.copy(other_path, this_path)
+                    db[hash] = data
