@@ -132,6 +132,9 @@ def import_results(data_path: str = "./.data", other_data_path: str = "./.data_o
     with model_db(data_path) as db:
         with model_db(other_data_path) as other_db:
             for hash, data in other_db.items():
+                if "data_path" not in data:
+                    continue
+
                 do_import = False
 
                 if hash not in db:
@@ -150,4 +153,5 @@ def import_results(data_path: str = "./.data", other_data_path: str = "./.data_o
                     this_path.parents[0].mkdir(exist_ok=True, parents=True)
                     logging.info(f"Importing {other_path} to {this_path}.")
                     shutil.copy(other_path, this_path)
+
                     db[hash] = data
