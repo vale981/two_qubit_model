@@ -101,11 +101,11 @@ resolved_reference = "f30a9691a5dab1c288b0fafb95ce35c686e1aa29"
 
 [[package]]
 name = "click"
-version = "8.1.1"
+version = "8.0.4"
 description = "Composable command line interface toolkit"
 category = "main"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.6"
 
 [package.dependencies]
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
@@ -295,7 +295,7 @@ typer = "^0.4.0"
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
 reference = "main"
-resolved_reference = "ec081a7790c4532678688cbe65c70524554c3c7f"
+resolved_reference = "4fec0124a73887fe984558ee2b671aa17ba6f09a"
 
 [[package]]
 name = "hopsflow"
@@ -960,7 +960,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "b9309519c81f331219fa01396a6b4b8a4b59cc67e4f944051c435dec4287fd05"
+content-hash = "6d0c76234f86aceca8ac4d3755e0942f583e59cbd5f8487dbf1e5bccfc249b83"
 
 [metadata.files]
 appnope = [
@@ -996,8 +996,8 @@ beartype = [
 ]
 binfootprint = []
 click = [
-    {file = "click-8.1.1-py3-none-any.whl", hash = "sha256:5e0d195c2067da3136efb897449ec1e9e6c98282fbf30d7f9e164af9be901a6b"},
-    {file = "click-8.1.1.tar.gz", hash = "sha256:7ab900e38149c9872376e8f9b5986ddcaf68c0f413cf73678a0bca5547e6f976"},
+    {file = "click-8.0.4-py3-none-any.whl", hash = "sha256:6a7a62563bbfabfda3a38f3023a1db4a35978c0abd76f6c9605ecd6554d6d9b1"},
+    {file = "click-8.0.4.tar.gz", hash = "sha256:8458d7b1287c5fb128c90e23381cf99dcde74beaf6c7ff6384ce84d6fe090adb"},
 ]
 click-spinner = [
     {file = "click-spinner-0.1.10.tar.gz", hash = "sha256:87eacf9d7298973a25d7615ef57d4782aebf913a532bba4b28a37e366e975daf"},

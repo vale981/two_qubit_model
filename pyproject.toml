@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hiro_models"
-version = "1.2.0"
+version = "1.2.1"
 description = "Operators for a general model of two interacting qubits coupled to two baths."
 authors = ["Valentin Boettcher <hiro at protagon.space>"]
 license = "MIT"
@@ -19,6 +19,7 @@ filelock = "^3.6.0"
 mypy = "^0.910"
 ipython = "^8.0.1"
 pytest = "^7.0.1"
+click = "==8.0.4"
 
 [build-system]
 requires = ["poetry>=0.12"]
