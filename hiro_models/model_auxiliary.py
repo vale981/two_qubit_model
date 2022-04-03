@@ -3,6 +3,7 @@
 from typing import Any
 
 from hops.core.hierarchy_data import HIData
+from qutip.steadystate import _default_steadystate_args
 from .model_base import Model
 from hops.core.integration import HOPSSupervisor
 from contextlib import contextmanager
@@ -11,7 +12,7 @@ from filelock import FileLock
 from pathlib import Path
 from .one_qubit_model import QubitModel
 from .two_qubit_model import TwoQubitModel
-from collections.abc import Sequence
+from collections.abc import Sequence, Iterator
 import shutil
 import logging
 
@@ -121,6 +122,21 @@ def get_data(
             )
         else:
             raise RuntimeError(f"No data found for model with hash '{hash}'.")
+
+
+def model_data_iterator(
+    models: Model, *args, **kwargs
+) -> Iterator[tuple[Model, HIData]]:
+    """
+    Yields tuples of ``model, data``, where ``data`` is already opened
+    and will be closed automatically.
+
+    For the rest of the arguments see :any:`get_data`.
+    """
+
+    for model in models:
+        with get_data(model, *args, **kwargs) as data:
+            yield model, data
 
 
 def import_results(data_path: str = "./.data", other_data_path: str = "./.data_other"):
