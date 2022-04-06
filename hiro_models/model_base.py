@@ -1,9 +1,13 @@
 """A base class for model HOPS configs."""
 
+from dataclasses import dataclass, field
 from typing import Any, Optional
+
+from hops.util.dynamic_matrix import DynamicMatrix
 from .utility import JSONEncoder, object_hook
 import numpy as np
 from numpy.typing import NDArray
+from typing import Union
 import json
 import copy
 import hashlib
@@ -11,11 +15,12 @@ from abc import ABC, abstractmethod
 import qutip as qt
 from hops.core.hierarchy_data import HIData
 import hopsflow
-from hopsflow.util import EnsembleValue, ensemble_return_add, ensemble_return_scale
+from hopsflow.util import EnsembleValue
 import hashlib
 import hops.core.hierarchy_parameters as params
 
 
+@dataclass
 class Model(ABC):
     """
     A base class with some data management functionality.
@@ -36,12 +41,8 @@ class Model(ABC):
     breaking changes.
     """
 
-    _ignored_keys: list[str] = ["_sigmas", "description"]
+    _ignored_keys: list[str] = field(default_factory=lambda: ["_sigmas", "description"])
     """Keys that are ignored when comparing or hashing models."""
-
-    def __init__(self, *_, **__):
-        del _, __
-        pass
 
     ###########################################################################
     #                                 Utility                                 #
@@ -148,8 +149,9 @@ class Model(ABC):
 
     @property
     @abstractmethod
-    def coupling_operators(self) -> list[np.ndarray]:
+    def coupling_operators(self) -> list[Union[np.ndarray, DynamicMatrix]]:
         """The bath coupling operators :math:`L`."""
+
         pass
 
     @abstractmethod
@@ -198,6 +200,7 @@ class Model(ABC):
             L=self.coupling_operators,
             G=g,
             W=w,
+            t=self.t,
             bcf_scale=self.bcf_scales,
             fock_hops=True,
             nonlinear=True,

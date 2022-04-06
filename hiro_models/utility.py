@@ -7,6 +7,8 @@ import numpy as np
 import qutip as qt
 from typing import Any, Union
 import hashlib
+import hops.util.dynamic_matrix as dynamic_matrix
+from hops.util.dynamic_matrix import DynamicMatrix, SmoothStep
 
 
 @beartype
@@ -54,6 +56,14 @@ class JSONEncoder(json.JSONEncoder):
     @default.register
     def _(self, obj: StocProcTolerances):
         return {"type": "StocProcTolerances", "value": dataclasses.asdict(obj)}
+
+    @default.register
+    def _(self, obj: DynamicMatrix):
+        return {
+            "type": "DynamicMatrix",
+            "subtype": obj.__class__.__name__,
+            "value": obj.__getstate__(),
+        }
 
     @classmethod
     def dumps(cls, data, **kwargs) -> str:
@@ -112,6 +122,9 @@ def object_hook(dct: dict[str, Any]):
 
         if type == "StocProcTolerances":
             return StocProcTolerances(**dct["value"])
+
+        if type == "DynamicMatrix":
+            return getattr(dynamic_matrix, dct["subtype"])(**dct["value"])
 
     return dct
 

@@ -294,8 +294,8 @@ typer = "^0.4.0"
 [package.source]
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
-reference = "main"
-resolved_reference = "4fec0124a73887fe984558ee2b671aa17ba6f09a"
+reference = "time_dep_coupling"
+resolved_reference = "c2db14e22df703b3a82fba90c9345a2e5cb444df"
 
 [[package]]
 name = "hopsflow"
@@ -960,7 +960,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "6d0c76234f86aceca8ac4d3755e0942f583e59cbd5f8487dbf1e5bccfc249b83"
+content-hash = "20538066767e39d1fbe5a8f12c2e67cdf26cee2ccf630094477593eee85034a2"
 
 [metadata.files]
 appnope = [

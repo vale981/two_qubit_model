@@ -168,6 +168,29 @@ def import_results(data_path: str = "./.data", other_data_path: str = "./.data_o
 
                     this_path.parents[0].mkdir(exist_ok=True, parents=True)
                     logging.info(f"Importing {other_path} to {this_path}.")
+                    logging.info(
+                        f"The model description is '{data.model_config.description}'."
+                    )
                     shutil.copy(other_path, this_path)
 
                     db[hash] = data
+
+
+def cleanup(models_to_keep: list[Model], data_path: str = "./.data"):
+    """Delete all model data except ``models_to_keep`` from ``data_path``."""
+
+    hashes_to_keep = [model.hexhash for model in models_to_keep]
+    data_path_resolved = Path(data_path)
+    with model_db(data_path) as db:
+        for hash in list(db.keys()):
+            if hash not in hashes_to_keep:
+                logging.info(f"Deleting model '{hash}'.")
+                info = db[hash]
+                if "data_path" in info:
+                    this_path = data_path_resolved / info["data_path"]
+
+                    while this_path.parent != data_path_resolved:
+                        this_path = this_path.parent
+
+                    logging.debug(f"Removing '{this_path}'.")
+                    # this_path.unlink()

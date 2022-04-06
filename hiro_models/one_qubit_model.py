@@ -38,6 +38,7 @@ from .utility import StocProcTolerances
 from .model_base import Model
 import scipy.special
 import hopsflow
+from hops.util.dynamic_matrix import DynamicMatrix, ConstantMatrix
 
 
 @beartype
@@ -50,7 +51,7 @@ class QubitModel(Model):
     All attributes can be changed after initialization.
     """
 
-    __version__: int = 1
+    __version__: int = 2
 
     δ: SupportsFloat = 0.1
     """The bath coupling factor."""
@@ -61,7 +62,7 @@ class QubitModel(Model):
     s: SupportsFloat = 1
     """The BCF s parameter."""
 
-    L: qt.Qobj = field(default_factory=lambda: 1 / 2 * qt.sigmax())  # type: ignore
+    L: DynamicMatrix = field(default_factory=lambda: ConstantMatrix(1 / 2 * qt.sigmax().full()))  # type: ignore
     """
     The :math:`L` coupling operator with shape ``(2, 2)``.
     """
@@ -82,11 +83,8 @@ class QubitModel(Model):
     ψ_0: qt.Qobj = qt.basis([2], [1])
     """The initial state."""
 
-    t_max: SupportsFloat = 10
-    """The maximum simulation time."""
-
-    resolution: SupportsFloat = 0.1
-    """The time resolution of the simulation result."""
+    t: NDArray[np.float64] = np.linspace(0, 10, 1000)
+    """The simulation time points."""
 
     k_fac: SupportsFloat = 1.7
     """The k_fac parameters for the truncation scheme.
@@ -132,9 +130,10 @@ class QubitModel(Model):
     """
 
     @property
-    def coupling_operators(self) -> list[np.ndarray]:
+    def coupling_operators(self) -> list[DynamicMatrix]:
         """The bath coupling operators :math:`L`."""
-        return [self.L.full()]
+
+        return [self.L]
 
     @property
     def system(self) -> qt.Qobj:
@@ -167,10 +166,9 @@ class QubitModel(Model):
         the inital state.
         """
 
-        eval = qt.expect(self.L * self.L.dag() + self.L.dag() * self.L, self.ψ_0)
-        assert isinstance(eval, float)
-
-        return eval
+        return (self.L @ self.L.dag + self.L.dag @ self.L).max_operator_norm(
+            self.t.max()
+        )
 
     @property
     def bcf_scale(self) -> float:
@@ -275,7 +273,7 @@ class QubitModel(Model):
         return sp.StocProc_FFT(
             spectral_density=self.spectral_density,
             alpha=self.bcf,
-            t_max=self.t_max,
+            t_max=self.t.max(),
             intgr_tol=self.driving_process_tolerance.integration,
             intpl_tol=self.driving_process_tolerance.interpolation,
             negative_frequencies=False,
@@ -291,7 +289,7 @@ class QubitModel(Model):
         return sp.StocProc_TanhSinh(
             spectral_density=self.thermal_spectral_density,
             alpha=self.thermal_correlations,
-            t_max=self.t_max,
+            t_max=self.t.max(),
             intgr_tol=self.thermal_process_tolerance.integration,
             intpl_tol=self.thermal_process_tolerance.interpolation,
             negative_frequencies=False,
@@ -321,7 +319,7 @@ class QubitModel(Model):
 
         system = params.SysP(
             H_sys=self.system.full(),
-            L=[self.L.full()],
+            L=self.coupling_operators,
             g=g,
             w=w,
             bcf_scale=[self.bcf_scale],
@@ -364,11 +362,7 @@ class QubitModel(Model):
         default_solver_args = dict(rtol=1e-8, atol=1e-8)
         default_solver_args.update(self.solver_args)
 
-        integration = params.IntP(
-            t_max=float(self.t_max),
-            t_steps=int(float(self.t_max) / float(self.resolution)) + 1,
-            **default_solver_args,
-        )
+        integration = params.IntP(t=self.t, **default_solver_args)
 
         return params.HIParams(
             SysP=system,
