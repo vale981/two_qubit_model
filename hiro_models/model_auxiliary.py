@@ -206,8 +206,8 @@ def import_results(
                     other_path = Path(other_data_path) / data["data_path"]
 
                     config = data["model_config"]
-                    logging.info(f"Importing {other_path} to {this_path}.")
-                    logging.info(f"The model description is '{config.description}'.")
+                    logging.warning(f"Importing {other_path} to {this_path}.")
+                    logging.warning(f"The model description is '{config.description}'.")
 
                     if (
                         interactive
