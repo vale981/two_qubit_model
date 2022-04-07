@@ -120,15 +120,25 @@ def get_data(
     in read-only mode.  The ``kwargs`` are passed on to :any:`HIData`.
     """
 
-    hash = model.hexhash
+    hexhash = model.hexhash
 
     with model_db(data_path) as db:
-        if hash in db and "data_path" in db[hash]:
-            return HIData(
-                Path(data_path) / db[hash]["data_path"], read_only=read_only, **kwargs
-            )
+        if hexhash in db and "data_path" in db[hexhash]:
+            path = Path(data_path) / db[hexhash]["data_path"]
+            try:
+                return HIData(path, read_only=read_only, **kwargs)
+            except:
+                return HIData(
+                    path,
+                    hi_key=model.hops_config,
+                    read_only=False,
+                    check_consistency=False,
+                    overwrite_key=True,
+                    **kwargs,
+                )
+
         else:
-            raise RuntimeError(f"No data found for model with hash '{hash}'.")
+            raise RuntimeError(f"No data found for model with hash '{hexhash}'.")
 
 
 def model_data_iterator(
