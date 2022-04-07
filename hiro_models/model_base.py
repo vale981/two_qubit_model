@@ -84,6 +84,7 @@ class Model(ABC):
     @property
     def hexhash(self):
         """A hexadecimal representation of the model hash."""
+
         return JSONEncoder.hexhash(self.to_hashable_dict())
 
     @classmethod
