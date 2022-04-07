@@ -295,7 +295,7 @@ typer = "^0.4.0"
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
 reference = "time_dep_coupling"
-resolved_reference = "c21a7708b4a8287791fb3e24c9b69d1e6e76b7c8"
+resolved_reference = "8d3838525f2575c2e5c652bde24a3df9dd4f57b0"
 
 [[package]]
 name = "hopsflow"
@@ -321,7 +321,7 @@ tqdm = "^4.62.3"
 type = "git"
 url = "https://github.com/vale981/hopsflow"
 reference = "main"
-resolved_reference = "4fc63d1c39d65e3fd858dcb3a565ecbd1cf82f53"
+resolved_reference = "2bb1ecfa886c545905afceaf311993247e7335b2"
 
 [[package]]
 name = "humanfriendly"
