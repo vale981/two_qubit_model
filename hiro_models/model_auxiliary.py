@@ -218,7 +218,7 @@ def import_results(
                     this_path.parents[0].mkdir(exist_ok=True, parents=True)
 
                     if is_smaller(this_path, other_path):
-                        shutil.copy(other_path, this_path_tmp)
+                        shutil.copy2(other_path, this_path_tmp)
                         shutil.move(this_path_tmp, this_path)
 
                     db[current_hash] = data
