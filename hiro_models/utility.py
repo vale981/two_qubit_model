@@ -34,6 +34,9 @@ class JSONEncoder(json.JSONEncoder):
 
     @singledispatchmethod
     def default(self, obj: Any):
+        if hasattr(obj, "to_dict"):
+            return obj.to_dict()
+
         return super().default(obj)
 
     @default.register
@@ -86,7 +89,10 @@ class JSONEncoder(json.JSONEncoder):
         The ``kwargs`` are passed on to :any:`json.loads`.
         """
 
-        return json.loads(string, object_hook=object_hook, **kwargs)
+        if "object_hook" not in kwargs:
+            kwargs["object_hook"] = object_hook
+
+        return json.loads(string, **kwargs)
 
     @classmethod
     def hash(cls, data, **kwargs):
@@ -108,6 +114,7 @@ class JSONEncoder(json.JSONEncoder):
 
 def object_hook(dct: dict[str, Any]):
     """A custom decoder for the types introduced in :any:`JSONEncoder`."""
+
     if "type" in dct:
         type = dct["type"]
 
