@@ -32,6 +32,9 @@ class Model(ABC):
     description: str = ""
     """A free-form description of the model instance."""
 
+    # t: NDArray[np.float64] = np.linspace(0, 10, 1000)
+    # """The simulation time points."""
+
     __base_version__: int = 1
     """The version of the model base."""
 
