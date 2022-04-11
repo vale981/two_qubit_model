@@ -15,6 +15,7 @@ from .two_qubit_model import TwoQubitModel
 from collections.abc import Sequence, Iterator, Iterable
 import shutil
 import logging
+import copy
 
 
 @contextmanager
@@ -263,3 +264,18 @@ def cleanup(
 
                 if not preview:
                     del db[hash]
+
+
+def migrate_db_to_new_hashes(data_path: str = "./.data"):
+    """
+    Recomputes all the hashes of the models in the database under
+    ``data_path`` and updates the database.
+    """
+
+    with model_db(data_path) as db:
+        for old_hash in list(db.keys()):
+            data = copy.deepcopy(db[old_hash])
+            new_hash = data["model_config"].hexhash
+
+            del db[old_hash]
+            db[new_hash] = data
