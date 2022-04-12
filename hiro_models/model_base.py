@@ -32,8 +32,8 @@ class Model(ABC):
     description: str = ""
     """A free-form description of the model instance."""
 
-    # t: NDArray[np.float64] = np.linspace(0, 10, 1000)
-    # """The simulation time points."""
+    t: NDArray[np.float64] = np.linspace(0, 10, 1000)
+    """The simulation time points."""
 
     __base_version__: int = 1
     """The version of the model base."""
@@ -146,7 +146,7 @@ class Model(ABC):
 
     @property
     @abstractmethod
-    def system(self) -> qt.Qobj:
+    def system(self) -> DynamicMatrix:
         """The system hamiltonian."""
 
         pass
@@ -230,7 +230,7 @@ class Model(ABC):
     ###########################################################################
 
     def system_expectation(
-        self, data: HIData, operator: qt.Qobj, **kwargs
+        self, data: HIData, operator: DynamicMatrix, **kwargs
     ) -> EnsembleValue:
         """Calculates the expectation value of ``operator`` from the
         hierarchy data ``data``.
@@ -246,7 +246,8 @@ class Model(ABC):
 
         return hopsflow.util.operator_expectation_ensemble(
             data.valid_sample_iterator(data.stoc_traj),  # type: ignore
-            operator.full(),
+            operator,
+            self.t,
             normalize=True,  # always nonlinear
             save=f"{operator_hash}_{self.hexhash}",
             N=N,

@@ -129,6 +129,13 @@ class QubitModel(Model):
     processes.
     """
 
+    H: DynamicMatrix = field(
+        default_factory=lambda: ConstantMatrix(1 / 2 * qt.sigmaz().full())
+    )  # type: ignore
+    """
+    The system hamiltonian :math:`H` with shape ``(2, 2)``.
+    """
+
     @property
     def coupling_operators(self) -> list[DynamicMatrix]:
         """The bath coupling operators :math:`L`."""
@@ -136,10 +143,10 @@ class QubitModel(Model):
         return [self.L]
 
     @property
-    def system(self) -> qt.Qobj:
+    def system(self) -> DynamicMatrix:
         """The system hamiltonian."""
 
-        return 1 / 2 * qt.sigmaz()  # type: ignore
+        return self.H  # type: ignore
 
     @property
     def bcf_norm(self) -> float:
@@ -318,7 +325,7 @@ class QubitModel(Model):
         g, w = self.bcf_coefficients(self.bcf_terms)
 
         system = params.SysP(
-            H_sys=self.system.full(),
+            H_sys=self.system,
             L=self.coupling_operators,
             g=g,
             w=w,
