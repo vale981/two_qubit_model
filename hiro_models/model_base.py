@@ -348,7 +348,7 @@ class Model(ABC):
 
         system = self.system_energy(data, **kwargs)
         bath = self.bath_energy(data, **kwargs)
-        total = float(qt.expect(self.system, self.ψ_0))
+        total = float(qt.expect(qt.Qobj(self.system(0)), self.ψ_0))
 
         return total - (system + bath)
 
