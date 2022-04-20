@@ -34,7 +34,7 @@ from hops.util.truncation_schemes import (
 import stocproc as sp
 
 from beartype import beartype
-from .utility import StocProcTolerances
+from .utility import StocProcTolerances, bcf_scale
 from .model_base import Model
 import scipy.special
 import hopsflow
@@ -151,7 +151,6 @@ class QubitModel(Model):
     @property
     def bcf_norm(self) -> float:
         """The normalization factor for the BCF.
-
         It is not used when generating the stochastic process due to
         numerical reasons.  It is being incorporated into the
         :any:`bcf_scale`.
@@ -167,23 +166,12 @@ class QubitModel(Model):
         )
 
     @property
-    def L_expect(self) -> float:
-        r"""
-        The expecation value :math:`\langle L^†L + LL^†\rangle` in
-        the inital state.
-        """
-
-        return (self.L @ self.L.dag + self.L.dag @ self.L).max_operator_norm(
-            self.t.max()
-        )
-
-    @property
     def bcf_scale(self) -> float:
         """
         The BCF scaling factor of the BCF.
         """
 
-        return float(self.δ) / self.L_expect * self.bcf_norm
+        return bcf_scale(self.δ, self.L, self.t.max(), self.s, self.ω_c)
 
     @property
     def bcf_scales(self) -> list[float]:
@@ -377,4 +365,309 @@ class QubitModel(Model):
             HiP=hierarchy,
             Eta=[self.driving_process],
             EtaTherm=[self.thermal_process],
+        )
+
+
+@beartype
+@dataclass(eq=False)
+class QubitModelMutliBath(Model):
+    """
+    A class to dynamically calculate all the one qubit model
+    parameters and generate the HOPS configuration.  Like
+    :any:`QubitModel` but supports multiple baths.
+
+    All attributes can be changed after initialization.
+    """
+
+    __version__: int = 1
+
+    δ: list[SupportsFloat] = field(default_factory=lambda: [0.1] * 2)
+    """The bath coupling factors."""
+
+    ω_c: list[SupportsFloat] = field(default_factory=lambda: [2] * 2)
+    """The cutoff frequencies :math:`ω_c`."""
+
+    s: list[SupportsFloat] = field(default_factory=lambda: [1] * 2)
+    """The BCF s parameter."""
+
+    L: list[DynamicMatrix] = field(default_factory=lambda: [ConstantMatrix(1 / 2 * qt.sigmax().full())] * 2)  # type: ignore
+    """
+    The :math:`L` coupling operators with shape ``(2, 2)``.
+    """
+
+    T: list[SupportsFloat] = field(default_factory=lambda: [0] * 2)
+    """The temperatures of the baths."""
+
+    ###########################################################################
+    #                             HOPS Parameters                             #
+    ###########################################################################
+
+    description: str = ""
+    """A free-form description of the model instance."""
+
+    bcf_terms: list[int] = field(default_factory=lambda: [6] * 2)
+    """How many bcf terms to use in the expansions of the BCF."""
+
+    ψ_0: qt.Qobj = qt.basis([2], [1])
+    """The initial state."""
+
+    t: NDArray[np.float64] = np.linspace(0, 10, 1000)
+    """The simulation time points."""
+
+    k_fac: list[SupportsFloat] = field(default_factory=lambda: [1.7] * 2)
+    """The k_fac parameters for the truncation scheme.
+
+    See
+    :any:`hops.util.truncation_schemes.TruncationScheme_Power_multi`.
+    """
+
+    k_max: int = 5
+    """The kmax parameter for the truncation scheme.
+
+    See
+    :any:`hops.util.abstract_truncation_scheme.TruncationScheme_Simplex`
+    """
+
+    influence_tolerance: SupportsFloat = 1e-2
+    """The ``influecne_tolerance`` parameter for the truncation
+    scheme.
+
+    See :any:`hops.util.truncation_schemes.BathMemory`.
+    """
+
+    truncation_scheme: str = "simplex"
+    """The truncation scheme to use."""
+
+    solver_args: dict[str, Any] = field(default_factory=dict)
+    """Extra arguments for :any:`scipy.integrate.solve_ivp`."""
+
+    driving_process_tolerances: list[StocProcTolerances] = field(
+        default_factory=lambda: [StocProcTolerances(), StocProcTolerances()]
+    )
+    """
+    The integration and interpolation tolerance for the driving
+    processes.
+    """
+
+    thermal_process_tolerances: list[StocProcTolerances] = field(
+        default_factory=lambda: [StocProcTolerances(), StocProcTolerances()]
+    )
+    """
+    The integration and interpolation tolerance for the thermal noise
+    processes.
+    """
+
+    H: DynamicMatrix = field(
+        default_factory=lambda: ConstantMatrix(1 / 2 * qt.sigmaz().full())  # type: ignore
+    )  # type: ignore
+    """
+    The system hamiltonian :math:`H` with shape ``(2, 2)``.
+    """
+
+    @property
+    def coupling_operators(self) -> list[DynamicMatrix]:
+        """The bath coupling operators :math:`L`."""
+
+        return self.L
+
+    @property
+    def system(self) -> DynamicMatrix:
+        """The system hamiltonian."""
+
+        return self.H
+
+    @property
+    def bcf_scales(self) -> list[float]:
+        """The scaling factors for the bath correlation functions."""
+
+        return [
+            bcf_scale(δ, L, self.t.max(), s, ω)
+            for δ, L, s, ω in zip(self.δ, self.L, self.s, self.ω_c)
+        ]
+
+    def bcf(self, i: int) -> hops.util.bcf.OhmicBCF_zeroTemp:
+        """
+        The zero temperature BCF of bath ``i``.
+        """
+
+        return hops.util.bcf.OhmicBCF_zeroTemp(
+            s=float(self.s[i]), eta=1, w_c=float(self.ω_c[i]), normed=False
+        )
+
+    def spectral_density(self, i: int) -> hops.util.bcf.OhmicSD_zeroTemp:
+        """
+        The zero temperature spectral density of bath ``i``.
+        """
+
+        return hops.util.bcf.OhmicSD_zeroTemp(
+            s=float(self.s[i]),
+            w_c=float(self.ω_c[i]),
+            eta=1,
+            normed=False,
+        )
+
+    def thermal_correlations(
+        self, i: int
+    ) -> Optional[hops.util.bcf.Ohmic_StochasticPotentialCorrelations]:
+        """
+        Thethermal noise corellation function of bath ``i``.
+        """
+
+        if self.T[i] == 0:
+            return None
+
+        return hops.util.bcf.Ohmic_StochasticPotentialCorrelations(
+            s=float(self.s[i]),
+            eta=1,
+            w_c=float(self.ω_c[i]),
+            normed=False,
+            beta=1 / float(self.T[i]),
+        )
+
+    def thermal_spectral_density(
+        self, i: int
+    ) -> Optional[hops.util.bcf.Ohmic_StochasticPotentialDensity]:
+        """
+        The normalized thermal noise spectral density of bath ``i``.
+        """
+
+        if self.T[i] == 0:
+            return None
+
+        return hops.util.bcf.Ohmic_StochasticPotentialDensity(
+            s=float(self.s[i]),
+            eta=1,
+            w_c=float(self.ω_c[i]),
+            normed=False,
+            beta=1.0 / float(self.T[i]),
+        )
+
+    def bcf_coefficients(
+        self, n: Optional[list[int]] = None
+    ) -> tuple[list[NDArray[np.complex128]], list[NDArray[np.complex128]]]:
+        """
+        The normalizedzero temperature BCF fit coefficients
+        :math:`G^{(i)}_j,W^{(i)}_j` with ``n`` terms of bath ``i``.
+        """
+
+        n = n or self.bcf_terms
+        g, w = [], []
+        for i in range(self.num_baths):
+            g_i, w_i = self.bcf(i).exponential_coefficients(n[i])
+            g.append(g_i)
+            w.append(w_i)
+
+        return (g, w)
+
+    @staticmethod
+    def basis(n: int = 1) -> qt.Qobj:
+        """
+        A state with of the qubit in the state state ``n`` where ``1``
+        means down and ``0`` means up.
+        """
+
+        return qt.basis([2], [n])
+
+    def driving_process(self, i: int) -> sp.StocProc:
+        """The driving stochastic process of the ``i``th bath."""
+
+        return sp.StocProc_FFT(
+            spectral_density=self.spectral_density(i),
+            alpha=self.bcf(i),
+            t_max=self.t.max(),
+            intgr_tol=self.driving_process_tolerances[i].integration,
+            intpl_tol=self.driving_process_tolerances[i].interpolation,
+            negative_frequencies=False,
+        )
+
+    def thermal_process(self, i: int) -> Optional[sp.StocProc]:
+        """The thermal noise stochastic process of bath ``i``."""
+
+        if self.T[i] == 0:
+            return None
+
+        return sp.StocProc_TanhSinh(
+            spectral_density=self.thermal_spectral_density(i),
+            alpha=self.thermal_correlations(i),
+            t_max=self.t.max(),
+            intgr_tol=self.thermal_process_tolerances[i].integration,
+            intpl_tol=self.thermal_process_tolerances[i].interpolation,
+            negative_frequencies=False,
+        )
+
+    @property
+    def thermal_processes(self) -> list[Optional[hopsflow.hopsflow.StocProc]]:
+        """
+        The thermal noise stochastic processes for each bath.
+        :any:`None` means zero temperature.
+        """
+
+        return [self.thermal_process(i) for i in range(self.num_baths)]
+
+    ###########################################################################
+    #                                 Utility                                 #
+    ###########################################################################
+
+    @property
+    def hops_config(self) -> params.HIParams:
+        """
+        The hops :any:`hops.core.hierarchy_params.HIParams` parameter object
+        for this system.
+        """
+
+        g, w = self.bcf_coefficients(self.bcf_terms)
+
+        system = params.SysP(
+            H_sys=self.system,
+            L=self.coupling_operators,
+            g=g,
+            w=w,
+            bcf_scale=self.bcf_scales,
+            T=self.T,
+            description=self.description,
+            psi0=self.ψ_0.full().flatten(),
+        )
+
+        if self.truncation_scheme == "bath_memory":
+            trunc_scheme = BathMemory.from_system(
+                system,
+                nonlinear=True,
+                influence_tolerance=float(self.influence_tolerance),
+            )
+
+        elif self.truncation_scheme == "simplex":
+            trunc_scheme = TruncationScheme_Simplex(self.k_max)
+
+        else:
+            trunc_scheme = TruncationScheme_Power_multi.from_g_w(
+                g=system.g,
+                w=system.w,
+                p=[1, 1],
+                q=[0.5, 0.5],
+                kfac=[float(k) for k in self.k_fac],
+            )
+
+        hierarchy = params.HiP(
+            seed=0,
+            nonlinear=True,
+            terminator=False,
+            result_type=params.ResultType.ZEROTH_AND_FIRST_ORDER,
+            accum_only=False,
+            rand_skip=None,
+            truncation_scheme=trunc_scheme,
+            save_therm_rng_seed=True,
+            auto_normalize=True,
+        )
+
+        default_solver_args = dict(rtol=1e-8, atol=1e-8)
+        default_solver_args.update(self.solver_args)
+
+        integration = params.IntP(t=self.t, **default_solver_args)
+
+        return params.HIParams(
+            SysP=system,
+            IntP=integration,
+            HiP=hierarchy,
+            Eta=[self.driving_process(i) for i in range(self.num_baths)],
+            EtaTherm=self.thermal_processes,
         )

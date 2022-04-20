@@ -5,10 +5,11 @@ from beartype import beartype
 import json
 import numpy as np
 import qutip as qt
-from typing import Any, Union
+from typing import Any, Union, SupportsFloat
 import hashlib
 import hops.util.dynamic_matrix as dynamic_matrix
 from hops.util.dynamic_matrix import DynamicMatrix, SmoothStep
+import scipy.special
 
 
 @beartype
@@ -151,3 +152,28 @@ def assert_serializable(model):
     assert model == model.__class__.from_json(
         model.to_json()
     ), "Serialization should not change the model."
+
+
+def bcf_scale(
+    δ: SupportsFloat,
+    L: DynamicMatrix,
+    t_max: SupportsFloat,
+    s: SupportsFloat,
+    ω_c: SupportsFloat,
+) -> float:
+    r"""
+    Calculate the normalized BCF scale so that
+    :any:`\langle{H_I}\rangle\approx = δ`.
+
+    :param δ: The coupling strength.
+    :param L: The coupling operators.
+    :param t_max: The maximal simulation time points.
+    :param s: The :math:`s` parameter of the (sub/super) ohmic BCF.
+    :param ω_c: The cutoff frequency of the BCF.
+    """
+
+    L_expect = (L @ L.dag + L.dag @ L).max_operator_norm(t_max)
+    bcf_norm = (
+        np.pi * float(s) / (scipy.special.gamma(float(s) + 1) * float(ω_c) ** float(s))
+    )
+    return float(δ) / L_expect * bcf_norm

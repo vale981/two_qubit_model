@@ -158,6 +158,12 @@ class Model(ABC):
 
         pass
 
+    @property
+    def num_baths(self) -> int:
+        """The number of baths attached to the system."""
+
+        return len(self.coupling_operators)
+
     @abstractmethod
     def bcf_coefficients(
         self, n: Optional[int] = None
