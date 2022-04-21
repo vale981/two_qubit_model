@@ -102,7 +102,7 @@ class JSONEncoder(json.JSONEncoder):
         :any:`hashlib.sha256`. A ``sha256`` hash is being returned.
         """
 
-        return hashlib.sha256(cls.dumps(data, **kwargs).encode("utf-8"))
+        return hashlib.sha256(cls.dumps(data, sort_keys=True, **kwargs).encode("utf-8"))
 
     @classmethod
     def hexhash(cls, data, **kwargs) -> str:
