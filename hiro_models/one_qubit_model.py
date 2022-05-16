@@ -168,7 +168,7 @@ class QubitModel(Model):
     @property
     def bcf_scale(self) -> float:
         """
-        The BCF scaling factor of the BCF.
+        The scaling factor of the BCF.
         """
 
         return bcf_scale(self.δ, self.L, self.t.max(), self.s, self.ω_c)
