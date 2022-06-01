@@ -20,7 +20,7 @@ r"""
 from dataclasses import dataclass, field
 import hopsflow
 from numpy.typing import NDArray
-from typing import Any, Optional, SupportsFloat
+from typing import Any, Optional, SupportsFloat, Union
 import hops.util.bcf
 import hops.util.bcf_fits
 import hops.core.hierarchy_parameters as params
@@ -58,6 +58,15 @@ class QubitModel(Model):
 
     ω_c: SupportsFloat = 2
     """The cutoff frequency :math:`ω_c`."""
+
+    ω_s: SupportsFloat = 0
+    """The SD shift frequency :math:`ω_s`."""
+
+    therm_method: str = "tanhsinh"
+    """
+    The method used for the thermal stochastic process.  Either
+    ``tanhsinh`` or ``fft``.
+    """
 
     s: SupportsFloat = 1
     """The BCF s parameter."""
@@ -180,32 +189,47 @@ class QubitModel(Model):
         return [self.bcf_scale]
 
     @property
-    def bcf(self) -> hops.util.bcf.OhmicBCF_zeroTemp:
+    def bcf(self) -> Union[hops.util.bcf.OhmicBCF_zeroTemp, hops.util.bcf.ShiftedBCF]:
         """
         The normalized zero temperature BCF.
         """
 
-        return hops.util.bcf.OhmicBCF_zeroTemp(
+        bcf = hops.util.bcf.OhmicBCF_zeroTemp(
             s=self.s, eta=1, w_c=self.ω_c, normed=False
         )
 
+        if float(self.ω_s) > 0:
+            return hops.util.bcf.ShiftedBCF(bcf, float(self.ω_s))
+
+        return bcf
+
     @property
-    def spectral_density(self) -> hops.util.bcf.OhmicSD_zeroTemp:
+    def spectral_density(
+        self,
+    ) -> Union[hops.util.bcf.OhmicSD_zeroTemp, hops.util.bcf.ShiftedSD]:
         """
         The normalized zero temperature spectral density.
         """
 
-        return hops.util.bcf.OhmicSD_zeroTemp(
+        sd = hops.util.bcf.OhmicSD_zeroTemp(
             s=float(self.s),
             w_c=float(self.ω_c),
             eta=1,
             normed=False,
         )
 
+        if float(self.ω_s) > 0:
+            return hops.util.bcf.ShiftedSD(sd, float(self.ω_s))
+
+        return sd
+
     @property
     def thermal_correlations(
         self,
-    ) -> Optional[hops.util.bcf.Ohmic_StochasticPotentialCorrelations]:
+    ) -> Union[
+        Optional[hops.util.bcf.Ohmic_StochasticPotentialCorrelations],
+        hops.util.bcf.ShiftedBCF,
+    ]:
         """
         The normalized thermal noise corellation function.
         """
@@ -219,6 +243,7 @@ class QubitModel(Model):
             w_c=self.ω_c,
             normed=False,
             beta=1 / float(self.T),
+            shift=float(self.ω_s),
         )
 
     @property
@@ -238,6 +263,7 @@ class QubitModel(Model):
             w_c=self.ω_c,
             normed=False,
             beta=1.0 / float(self.T),
+            shift=float(self.ω_s),
         )
 
     def bcf_coefficients(
@@ -281,7 +307,9 @@ class QubitModel(Model):
         if self.T == 0:
             return None
 
-        return sp.StocProc_TanhSinh(
+        return (
+            sp.StocProc_TanhSinh if self.therm_method == "tanhsins" else sp.StocProc_FFT
+        )(
             spectral_density=self.thermal_spectral_density,
             alpha=self.thermal_correlations,
             t_max=self.t.max(),
