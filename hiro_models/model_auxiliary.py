@@ -16,6 +16,7 @@ from collections.abc import Sequence, Iterator, Iterable
 import shutil
 import logging
 import copy
+import os
 
 
 @contextmanager
@@ -266,7 +267,9 @@ def cleanup(
                     del db[hash]
 
 
-def migrate_db_to_new_hashes(data_path: str = "./.data"):
+def migrate_db_to_new_hashes(
+    data_path: str = "./.data", results_path: str = "./results"
+):
     """
     Recomputes all the hashes of the models in the database under
     ``data_path`` and updates the database.
@@ -279,3 +282,10 @@ def migrate_db_to_new_hashes(data_path: str = "./.data"):
 
             del db[old_hash]
             db[new_hash] = data
+
+            for result in os.listdir(results_path):
+                if old_hash in result:
+                    os.rename(
+                        os.path.join(results_path, result),
+                        os.path.join(results_path, result.replace(old_hash, new_hash)),
+                    )
