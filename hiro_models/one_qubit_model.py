@@ -308,7 +308,7 @@ class QubitModel(Model):
             return None
 
         return (
-            sp.StocProc_TanhSinh if self.therm_method == "tanhsins" else sp.StocProc_FFT
+            sp.StocProc_TanhSinh if self.therm_method == "tanhsinh" else sp.StocProc_FFT
         )(
             spectral_density=self.thermal_spectral_density,
             alpha=self.thermal_correlations,
@@ -407,7 +407,7 @@ class QubitModelMutliBath(Model):
     All attributes can be changed after initialization.
     """
 
-    __version__: int = 1
+    __version__: int = 2
 
     δ: list[SupportsFloat] = field(default_factory=lambda: [0.1] * 2)
     """The bath coupling factors."""
@@ -417,6 +417,15 @@ class QubitModelMutliBath(Model):
 
     s: list[SupportsFloat] = field(default_factory=lambda: [1] * 2)
     """The BCF s parameter."""
+
+    ω_s: list[SupportsFloat] = field(default_factory=lambda: [0] * 2)
+    """The SD shift frequencies :math:`ω_s`."""
+
+    therm_methods: list[str] = field(default_factory=lambda: ["tanhsinh"] * 2)
+    """
+    The methods used for the thermal stochastic process.  Either
+    ``tanhsinh`` or ``fft``.
+    """
 
     L: list[DynamicMatrix] = field(default_factory=lambda: [ConstantMatrix(1 / 2 * qt.sigmax().full())] * 2)  # type: ignore
     """
@@ -513,26 +522,40 @@ class QubitModelMutliBath(Model):
             for δ, L, s, ω in zip(self.δ, self.L, self.s, self.ω_c)
         ]
 
-    def bcf(self, i: int) -> hops.util.bcf.OhmicBCF_zeroTemp:
+    def bcf(
+        self, i: int
+    ) -> Union[hops.util.bcf.OhmicBCF_zeroTemp, hops.util.bcf.ShiftedBCF]:
         """
         The zero temperature BCF of bath ``i``.
         """
 
-        return hops.util.bcf.OhmicBCF_zeroTemp(
+        bcf = hops.util.bcf.OhmicBCF_zeroTemp(
             s=float(self.s[i]), eta=1, w_c=float(self.ω_c[i]), normed=False
         )
 
-    def spectral_density(self, i: int) -> hops.util.bcf.OhmicSD_zeroTemp:
+        if float(self.ω_s[i]) > 0:
+            return hops.util.bcf.ShiftedBCF(bcf, float(self.ω_s[i]))
+
+        return bcf
+
+    def spectral_density(
+        self, i: int
+    ) -> Union[hops.util.bcf.OhmicSD_zeroTemp, hops.util.bcf.ShiftedSD]:
         """
         The zero temperature spectral density of bath ``i``.
         """
 
-        return hops.util.bcf.OhmicSD_zeroTemp(
+        sd = hops.util.bcf.OhmicSD_zeroTemp(
             s=float(self.s[i]),
             w_c=float(self.ω_c[i]),
             eta=1,
             normed=False,
         )
+
+        if float(self.ω_s[i]) > 0:
+            return hops.util.bcf.ShiftedSD(sd, float(self.ω_s[i]))
+
+        return sd
 
     def thermal_correlations(
         self, i: int
@@ -550,6 +573,7 @@ class QubitModelMutliBath(Model):
             w_c=float(self.ω_c[i]),
             normed=False,
             beta=1 / float(self.T[i]),
+            shift=float(self.ω_s[i]),
         )
 
     def thermal_spectral_density(
@@ -568,6 +592,7 @@ class QubitModelMutliBath(Model):
             w_c=float(self.ω_c[i]),
             normed=False,
             beta=1.0 / float(self.T[i]),
+            shift=float(self.ω_s[i]),
         )
 
     def bcf_coefficients(
@@ -614,7 +639,11 @@ class QubitModelMutliBath(Model):
         if self.T[i] == 0:
             return None
 
-        return sp.StocProc_TanhSinh(
+        return (
+            sp.StocProc_TanhSinh
+            if self.therm_method[i] == "tanhsinh"
+            else sp.StocProc_FFT
+        )(
             spectral_density=self.thermal_spectral_density(i),
             alpha=self.thermal_correlations(i),
             t_max=self.t.max(),
