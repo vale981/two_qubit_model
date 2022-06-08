@@ -128,7 +128,7 @@ def get_data(
         if hexhash in db and "data_path" in db[hexhash]:
             path = Path(data_path) / db[hexhash]["data_path"]
             try:
-                return HIData(path, read_only=read_only, **kwargs)
+                return HIData(path, read_only=read_only, robust=False, **kwargs)
             except:
                 return HIData(
                     path,
@@ -136,6 +136,7 @@ def get_data(
                     read_only=False,
                     check_consistency=False,
                     overwrite_key=True,
+                    robust=False,
                     **kwargs,
                 )
 
