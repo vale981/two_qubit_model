@@ -358,6 +358,23 @@ class Model(ABC):
 
         return total - (system + bath)
 
+    def total_energy(self, data: HIData, **kwargs) -> EnsembleValue:
+        """Calculates the total from the trajectories in ``data``.
+
+        The ``kwargs`` are passed on to :any:`bath_energy`,
+        :any:`system_energy` and :any:`interaction_energy`.
+
+        :returns: The total energy.
+        """
+
+        system = self.system_energy(data, **kwargs)
+        bath = self.bath_energy(data, **kwargs)
+        interaction = self.interaction_energy(data, **kwargs)
+
+        total = system + bath.sum_baths() + interaction.sum_baths()
+
+        return total
+
 
 def _get_N_kwargs(kwargs: dict, data: HIData) -> tuple[int, dict]:
     N = kwargs.get("N", data.samples)
