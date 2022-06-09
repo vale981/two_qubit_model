@@ -641,7 +641,7 @@ class QubitModelMutliBath(Model):
 
         return (
             sp.StocProc_TanhSinh
-            if self.therm_method[i] == "tanhsinh"
+            if self.therm_methods[i] == "tanhsinh"
             else sp.StocProc_FFT
         )(
             spectral_density=self.thermal_spectral_density(i),
