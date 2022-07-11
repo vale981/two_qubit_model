@@ -1,13 +1,11 @@
 """A base class for model HOPS configs."""
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
-
+from typing import Any, Optional, Union, ClassVar
 from hops.util.dynamic_matrix import DynamicMatrix
 from .utility import JSONEncoder, object_hook
 import numpy as np
 from numpy.typing import NDArray
-from typing import Union
 import json
 import copy
 import hashlib
@@ -18,6 +16,7 @@ import hopsflow
 from hopsflow.util import EnsembleValue
 import hashlib
 import hops.core.hierarchy_parameters as params
+from collections.abc import Callable
 
 
 @dataclass
@@ -51,14 +50,25 @@ class Model(ABC):
     #                                 Utility                                 #
     ###########################################################################
 
-    def to_dict(self):
-        """Returns a dictionary representation of the model configuration."""
+    def to_dict(self, extra_fields: "dict[str, Callable[[Model], str]]" = {}):
+        """Returns a dictionary representation of the model
+        configuration.
 
-        return {key: self.__dict__[key] for key in self.__dict__ if key[0] != "_"} | {
-            "__version__": self.__version__,
-            "__base_version__": self.__base_version__,
-            "__model__": self.__class__.__name__,
-        }
+        :param extra_fields: A dictionary whose keys will be added to
+            the final dict and whose values are callables that take
+            the model instance as an argument and return the value
+            that will be assigned the addyd key.
+        """
+
+        return (
+            {key: self.__dict__[key] for key in self.__dict__ if key[0] != "_"}
+            | {
+                "__version__": self.__version__,
+                "__base_version__": self.__base_version__,
+                "__model__": self.__class__.__name__,
+            }
+            | {key: value(self) for key, value in extra_fields.items()}
+        )
 
     def to_hashable_dict(self):
         """
@@ -273,6 +283,42 @@ class Model(ABC):
         operator = self.system
         return self.system_expectation(data, operator, real=True, **kwargs)
 
+    def system_power(self, data: HIData, **kwargs) -> Optional[EnsembleValue]:
+        """Calculates the power based on the time dependency of the
+        system hamiltonian from ``data``.
+
+        The ``kwargs`` are passed on to
+        :any:`hopsflow.util.ensemble_mean`.
+
+        :returns: See :any:`hopsflow.util.ensemble_mean`.  Returns
+                  :any:`None` if the system is static.
+        """
+
+        operator = self.system.derivative()
+
+        if (abs(operator(self.t)).sum() == 0).all():
+            return None
+
+        return self.system_expectation(data, operator, real=True, **kwargs)
+
+    def energy_change_from_system_power(
+        self, data: HIData, **kwargs
+    ) -> Optional[EnsembleValue]:
+        """Calculates the integrated system power from the hierarchy
+        data ``data``.
+
+        The ``kwargs`` are passed on to :any:`system_power`.
+
+        :returns: See :any:`system_power`.  Returns :any:`None` if the
+                  system is static.
+        """
+
+        power = self.system_power(data, **kwargs)
+        if power is not None:
+            return power.integrate(self.t)
+
+        return None
+
     def bath_energy_flow(self, data: HIData, **kwargs) -> EnsembleValue:
         """Calculates the bath energy flow from the hierarchy data
         ``data``.
@@ -314,6 +360,54 @@ class Model(ABC):
             (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
             N=N,
             save=f"interaction_{self.hexhash}",
+            **kwargs,
+        )
+
+    def interaction_power(self, data: HIData, **kwargs) -> EnsembleValue:
+        """Calculates interaction power from the hierarchy data
+        ``data``.
+
+        The ``kwargs`` are passed on to
+        :any:`hopsflow.util.interaction_energy_ensemble`.
+
+        :returns: See :any:`hopsflow.util.interaction_energy_ensemble`.
+        """
+
+        N, kwargs = _get_N_kwargs(kwargs, data)
+
+        return hopsflow.hopsflow.interaction_energy_ensemble(
+            data.valid_sample_iterator(data.stoc_traj),  # type: ignore
+            data.valid_sample_iterator(data.aux_states),  # type: ignore
+            self.hopsflow_system,
+            (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
+            N=N,
+            save=f"interaction_power_{self.hexhash}",
+            power=True,
+            **kwargs,
+        )
+
+    def energy_change_from_interaction_power(
+        self, data: HIData, **kwargs
+    ) -> EnsembleValue:
+        """Calculates the integrated interaction power from the hierarchy data
+        ``data``.
+
+        The ``kwargs`` are passed on to
+        :any:`hopsflow.util.energy_change_from_interaction_power`.
+
+        :returns: See :any:`hopsflow.util.energy_change_from_interaction_power`.
+        """
+
+        N, kwargs = _get_N_kwargs(kwargs, data)
+
+        return hopsflow.hopsflow.energy_change_from_interaction_power(
+            np.array(data.time),
+            data.valid_sample_iterator(data.stoc_traj),  # type: ignore
+            data.valid_sample_iterator(data.aux_states),  # type: ignore
+            self.hopsflow_system,
+            (data.valid_sample_iterator(data.rng_seed), self.hopsflow_therm(data.time[:])),  # type: ignore
+            N=N,
+            save=f"interaction_power_{self.hexhash}",  # under the hood the power is used
             **kwargs,
         )
 
@@ -359,7 +453,8 @@ class Model(ABC):
         return total - (system + bath)
 
     def total_energy(self, data: HIData, **kwargs) -> EnsembleValue:
-        """Calculates the total from the trajectories in ``data``.
+        """Calculates the total energy from the trajectories in
+        ``data`` using energy bilance.
 
         The ``kwargs`` are passed on to :any:`bath_energy`,
         :any:`system_energy` and :any:`interaction_energy`.
@@ -374,6 +469,37 @@ class Model(ABC):
         total = system + bath.sum_baths() + interaction.sum_baths()
 
         return total
+
+    def total_power(self, data: HIData, **kwargs) -> EnsembleValue:
+        """Calculates the total power from the trajectories in
+        ``data``.
+
+        The ``kwargs`` are passed on to :any:`system_power` and
+        :any:`interaction_power`.
+
+        :returns: The total power.
+        """
+
+        power = self.interaction_power(data, **kwargs).sum_baths()
+        system_power = self.system_power(data, **kwargs)
+
+        if system_power is not None:
+            power = power + system_power
+
+        return power
+
+    def total_energy_from_power(self, data: HIData, **kwargs) -> EnsembleValue:
+        """Calculates the total energy from the trajectories in
+        ``data`` using the integrated power.
+
+        The ``kwargs`` are passed on to :any:`total_power`.
+
+        :returns: The total energy.
+        """
+
+        return self.total_power(data, **kwargs).integrate(self.t)
+
+    std_extra_fields: ClassVar = {"BCF scaling": lambda model: model.bcf_scale}
 
 
 def _get_N_kwargs(kwargs: dict, data: HIData) -> tuple[int, dict]:
