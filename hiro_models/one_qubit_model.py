@@ -673,9 +673,27 @@ class QubitModelMutliBath(Model):
             return self.bcf(i)
 
         def thermal_bcf(t):
-            return self.bcf(i)(t) + 2 * (self.thermal_correlations(i)(t).real)
+            return (
+                self.bcf(i)(t) + 2 * (self.thermal_correlations(i)(t).real)
+            ) * self.bcf_scales[i]
 
         return thermal_bcf
+
+    def full_thermal_spectral_density(self, i: int):
+        """
+        :returns: The full thermal spectral density for the ``i``th bath.
+        """
+
+        if self.T[i] == 0:
+            return self.spectral_density(i)
+
+        def thermal_sd(ω):
+            return self.bcf_scales[i] * (
+                self.spectral_density(i)(ω)
+                * (1 / (np.expm1(ω / self.T[i])) + np.heaviside(ω, 0))
+            )
+
+        return thermal_sd
 
     @property
     def hops_config(self) -> params.HIParams:
