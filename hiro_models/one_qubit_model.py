@@ -665,6 +665,18 @@ class QubitModelMutliBath(Model):
     #                                 Utility                                 #
     ###########################################################################
 
+    def thermal_bcf(self, i: int):
+        """
+        :returns: The thermal bath correlation function for the ``i``th bath.
+        """
+        if self.T[i] == 0:
+            return self.bcf(i)
+
+        def thermal_bcf(t):
+            return self.bcf(i)(t) + 2 * (self.thermal_correlations(i)(t).real)
+
+        return thermal_bcf
+
     @property
     def hops_config(self) -> params.HIParams:
         """
