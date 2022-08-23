@@ -56,6 +56,16 @@ class QubitModel(Model):
     δ: SupportsFloat = 0.1
     """The bath coupling factor."""
 
+    bcf_norm_method: str = field(default_factory=lambda: "pure_dephasing")
+    r"""The normalization of the bath correlation function.
+
+     - `"pure dephasing"` corresponds to :math:`\Im ∫_0^∞ α(τ) dτ = -1`
+     - `"unit"` corresponds to :math:`α(0)=1` (zero temperature BCF)
+     - `"unit_therm"` corresponds to :math:`α_β(0)=1`
+     - `"sd_peak"` corresponds to :math:`\max_ω J(ω)=1` (zero temperature SD)
+     - `"sd_peak_therm"` corresponds to :math:`\max_ω J_β(ω)=1`
+    """
+
     ω_c: SupportsFloat = 2
     """The cutoff frequency :math:`ω_c`."""
 
@@ -175,12 +185,60 @@ class QubitModel(Model):
         )
 
     @property
+    def full_thermal_spectral_density(self):
+        """
+        :returns: The full thermal spectral density.
+        """
+
+        if self.T == 0:
+            return self.spectral_density
+
+        def thermal_sd(ω):
+            return self.spectral_density(ω) * (
+                1 / (np.expm1(ω / self.T)) + np.heaviside(ω, 0)
+            )
+
+        return thermal_sd
+
+    @property
+    def full_thermal_bcf(self):
+        """
+        :returns: The full thermal bath correlation function.
+        """
+
+        if self.T == 0:
+            return self.bcf
+
+        def thermal_bcf(t):
+            return self.bcf(t) + 2 * (self.thermal_correlations(t).real)
+
+        return thermal_bcf
+
+    @property
     def bcf_scale(self) -> float:
         """
         The scaling factor of the BCF.
         """
 
-        return bcf_scale(self.δ, self.L, self.t.max(), self.s, self.ω_c)
+        if self.bcf_norm_method == "pure_dephasing":
+            return bcf_scale(self.δ, self.L, self.t.max(), self.s, self.ω_c)
+
+        if self.bcf_norm_method == "unit":
+            return float(self.δ) / self.bcf(0).real
+
+        if self.bcf_norm_method == "unit_therm":
+            return float(self.δ) / self.full_thermal_bcf(0).real
+
+        if self.bcf_norm_method == "sd_peak":
+            return (
+                float(self.δ) / self.spectral_density(self.ω_c * self.s + self.ω_s).real
+            )
+
+        if self.bcf_norm_method == "sd_peak_therm":
+            return (
+                float(self.δ)
+                / self.full_thermal_spectral_density(self.ω_c * self.s + self.ω_s).real
+            )
 
     @property
     def bcf_scales(self) -> list[float]:
@@ -688,9 +746,8 @@ class QubitModelMutliBath(Model):
             return self.spectral_density(i)
 
         def thermal_sd(ω):
-            return self.bcf_scales[i] * (
-                self.spectral_density(i)(ω)
-                * (1 / (np.expm1(ω / self.T[i])) + np.heaviside(ω, 0))
+            return self.spectral_density(i)(ω) * (
+                1 / (np.expm1(ω / self.T[i])) + np.heaviside(ω, 0)
             )
 
         return thermal_sd
