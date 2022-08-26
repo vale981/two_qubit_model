@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from .utility import JSONEncoder, object_hook
 from filelock import FileLock
 from pathlib import Path
-from .one_qubit_model import QubitModel
+from .one_qubit_model import QubitModel, QubitModelMutliBath
 from .two_qubit_model import TwoQubitModel
 from collections.abc import Sequence, Iterator, Iterable
 import shutil
@@ -69,6 +69,9 @@ def model_hook(dct: dict[str, Any]):
 
         if model == "TwoQubitModel":
             return TwoQubitModel.from_dict(treated_vals)
+
+        if model == "QubitModelMutliBath":
+            return QubitModelMutliBath.from_dict(treated_vals)
 
     return object_hook(dct)
 
