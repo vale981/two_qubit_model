@@ -559,6 +559,12 @@ class QubitModelMutliBath(Model):
     The system hamiltonian :math:`H` with shape ``(2, 2)``.
     """
 
+    streaming_mode: bool = False
+    """
+    Whether to stream the trajectory to a fifo.  When turned on, the
+    trajectories won't be saved to the data file.
+    """
+
     @property
     def coupling_operators(self) -> list[DynamicMatrix]:
         """The bath coupling operators :math:`L`."""
@@ -812,9 +818,11 @@ class QubitModelMutliBath(Model):
             seed=0,
             nonlinear=True,
             terminator=False,
-            result_type=params.ResultType.ZEROTH_ORDER_ONLY,
+            result_type=params.ResultType.ZEROTH_ORDER_ONLY
+            if self.streaming_mode
+            else params.ResultType.ZEROTH_AND_FIRST_ORDER,
             stream_result_type=params.ResultType.ZEROTH_AND_FIRST_ORDER,
-            accum_only=True,
+            accum_only=self.streaming_mode,
             rand_skip=None,
             truncation_scheme=trunc_scheme,
             save_therm_rng_seed=True,

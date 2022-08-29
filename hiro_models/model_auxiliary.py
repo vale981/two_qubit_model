@@ -93,6 +93,7 @@ def integrate(
     data_path: str = "./.data",
     clear_pd: bool = False,
     single_process: bool = False,
+    stream_file: Optional[str] = None,
 ):
     """Integrate the hops equations for the model.
 
@@ -113,15 +114,15 @@ def integrate(
         n,
         data_path=data_path,
         data_name=hash,
-        stream_file="results.fifo",
+        stream_file=stream_file,
     )
 
     if single_process:
         supervisor.integrate_single_process(clear_pd)
     else:
         supervisor.integrate(clear_pd)
-    return
-    with supervisor.get_data(True) as data:
+
+    with supervisor.get_data(True, stream=False) as data:
         with model_db(data_path) as db:
             db[hash] = {
                 "model_config": model.to_dict(),

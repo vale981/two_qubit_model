@@ -419,7 +419,6 @@ class Model(ABC):
                         _,
                         rng_seed,
                     ) = pickle.load(fifo)
-
                     flow = hopsflow.util.ensemble_mean_online(
                         (psi0, aux_states, rng_seed),
                         flow_name,
