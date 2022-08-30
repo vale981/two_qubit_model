@@ -37,9 +37,8 @@ def model_db(data_path: str = "./.data"):
     db_path = path / "model_data.json"
     db_lock = path / "model_data.json.lock"
 
-    db_path.touch(exist_ok=True)
-
     with FileLock(db_lock):
+        db_path.touch(exist_ok=True)
         with db_path.open("r+") as f:
             data = f.read()
             db = (
