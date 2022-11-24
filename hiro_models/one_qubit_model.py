@@ -210,6 +210,7 @@ class QubitModel(Model):
             return self.bcf
 
         def thermal_bcf(t):
+            assert self.thermal_correlations is not None
             return self.bcf(t) + 2 * (self.thermal_correlations(t).real)
 
         return thermal_bcf
@@ -230,15 +231,20 @@ class QubitModel(Model):
             return float(self.δ) / self.full_thermal_bcf(0).real
 
         if self.bcf_norm_method == "sd_peak":
-            return (
-                float(self.δ) / self.spectral_density(self.ω_c * self.s + self.ω_s).real
+            return float(self.δ) / float(
+                self.spectral_density(
+                    float(self.ω_c) * float(self.s) + float(self.ω_s)
+                ).real
             )
 
         if self.bcf_norm_method == "sd_peak_therm":
-            return (
-                float(self.δ)
-                / self.full_thermal_spectral_density(self.ω_c * self.s + self.ω_s).real
+            return float(self.δ) / float(
+                self.full_thermal_spectral_density(
+                    float(self.ω_c) * float(self.s) + float(self.ω_s)
+                ).real
             )
+
+        return 1.0
 
     @property
     def bcf_scales(self) -> list[float]:
