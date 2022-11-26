@@ -37,7 +37,7 @@ class Model(ABC):
     __base_version__: int = 1
     """The version of the model base."""
 
-    __version__: int = 1
+    __version__: Union[int, list[int]] = 1
     """
     The version of the model implementation.  It is increased for
     breaking changes.

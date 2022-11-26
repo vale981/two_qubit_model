@@ -36,7 +36,7 @@ class OttoEngine(Model):
     All attributes can be changed after initialization.
     """
 
-    __version__: int = 2
+    __version__: list[int] = [1, QubitModelMutliBath.__version__]
 
     δ: list[SupportsFloat] = field(default_factory=lambda: [0.1] * 2)
     """The bath coupling factors."""
@@ -229,7 +229,23 @@ class OttoEngine(Model):
     def qubit_model(self) -> QubitModelMutliBath:
         """Returns the underlying Qubit model."""
 
-        return QubitModelMutliBath()
+        return QubitModelMutliBath(
+            δ=self.δ,
+            ω_c=self.ω_c,
+            ω_s=self.ω_s,
+            t=self.t,
+            ψ_0=self.ψ_0,
+            description=f"The qubit model underlying the otto cycle with description: {self.description}.",
+            truncation_scheme="simplex",
+            k_max=self.k_max,
+            bcf_terms=self.bcf_terms,
+            driving_process_tolerances=self.driving_process_tolerances,
+            thermal_process_tolerances=self.thermal_process_tolerances,
+            T=self.T,
+            L=self.L,
+            H=self.H,
+            therm_methods=self.therm_methods,
+        )
 
 
 def normalize_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:
