@@ -306,8 +306,8 @@ plotting = ["matplotlib (>=3.5.0,<4.0.0)"]
 [package.source]
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
-reference = "time_dep_coupling"
-resolved_reference = "75bcb95987a53b770c274be61c80bccbc8c20645"
+reference = "main"
+resolved_reference = "ced7c18bb10ed3f2313e8f566aa9d1c8eda46373"
 
 [[package]]
 name = "hopsflow"
@@ -332,7 +332,7 @@ tqdm = "^4.62.3"
 type = "git"
 url = "https://github.com/vale981/hopsflow"
 reference = "main"
-resolved_reference = "1f64833bc6a637cd314f0b24caf1f8a2a5985523"
+resolved_reference = "7df9cdf5e56da571fe6c6eb9e8fba09187041302"
 
 [[package]]
 name = "humanfriendly"
