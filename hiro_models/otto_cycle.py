@@ -27,7 +27,7 @@ from .one_qubit_model import QubitModelMutliBath
 
 @beartype
 @dataclass(eq=False)
-class OttoEngine(Model):
+class OttoEngine(QubitModelMutliBath):
     r"""
     A class to dynamically calculate all the otto motor model
     parameters and generate the HOPS configuration.  Uses
@@ -36,35 +36,10 @@ class OttoEngine(Model):
     All attributes can be changed after initialization.
     """
 
-    __version__: list[int] = [1, QubitModelMutliBath.__version__]
-
-    δ: list[SupportsFloat] = field(default_factory=lambda: [0.1] * 2)
-    """The bath coupling factors."""
-
-    ω_c: list[SupportsFloat] = field(default_factory=lambda: [2] * 2)
-    """The cutoff frequencies :math:`ω_c`."""
-
-    s: list[SupportsFloat] = field(default_factory=lambda: [1] * 2)
-    """The BCF s parameter."""
-
-    ω_s: list[SupportsFloat] = field(default_factory=lambda: [0] * 2)
-    """The SD shift frequencies :math:`ω_s`."""
-
-    therm_methods: list[str] = field(default_factory=lambda: ["tanhsinh"] * 2)
-    """
-    The methods used for the thermal stochastic process.  Either
-    ``tanhsinh`` or ``fft``.
-    """
-
-    L: list[DynamicMatrix] = field(
-        default_factory=lambda: [ConstantMatrix(1 / 2 * qt.sigmax().full())] * 2  # type: ignore
-    )
-    """
-    The :math:`L` coupling operators with shape ``(2, 2)``.
-    """
+    __version__: int = 1
 
     H_0: np.ndarray = field(
-        default_factory=(1 / 2 * qt.sigmax().full()) + np.eye(2)  # type: ignore
+        default_factory=lambda: 1 / 2 * (qt.sigmaz().full() + np.eye(2))  # type: ignore
     )
     """
     The :math:`H_0` system hamiltonian with shape ``(2, 2)``.
@@ -74,58 +49,13 @@ class OttoEngine(Model):
     """
 
     H_1: np.ndarray = field(
-        default_factory=(1 / 2 * qt.sigmax().full()) + np.eye(2)  # type: ignore
+        default_factory=lambda: 1 / 2 * (qt.sigmaz().full() + np.eye(2))  # type: ignore
     )
     """
     The :math:`H_1` shape ``(2, 2)``.
 
     It will get shifted and normalized so that its smallest eigenvalue
     is zero and its largest one is one.
-    """
-
-    T: list[SupportsFloat] = field(default_factory=lambda: [0] * 2)
-    """The temperatures of the baths."""
-
-    ###########################################################################
-    #                             HOPS Parameters                             #
-    ###########################################################################
-
-    description: str = ""
-    """A free-form description of the model instance."""
-
-    bcf_terms: list[int] = field(default_factory=lambda: [6] * 2)
-    """How many bcf terms to use in the expansions of the BCF."""
-
-    ψ_0: qt.Qobj = qt.basis([2], [1])
-    """The initial state. The default is the 'down' state."""
-
-    t: NDArray[np.float64] = np.linspace(0, 10, 1000)
-    """The simulation time points."""
-
-    k_max: int = 5
-    """The kmax parameter for the truncation scheme.
-
-    See
-    :any:`hops.util.abstract_truncation_scheme.TruncationScheme_Simplex`
-    """
-
-    solver_args: dict[str, Any] = field(default_factory=dict)
-    """Extra arguments for :any:`scipy.integrate.solve_ivp`."""
-
-    driving_process_tolerances: list[StocProcTolerances] = field(
-        default_factory=lambda: [StocProcTolerances(), StocProcTolerances()]
-    )
-    """
-    The integration and interpolation tolerance for the driving
-    processes.
-    """
-
-    thermal_process_tolerances: list[StocProcTolerances] = field(
-        default_factory=lambda: [StocProcTolerances(), StocProcTolerances()]
-    )
-    """
-    The integration and interpolation tolerance for the thermal noise
-    processes.
     """
 
     ###########################################################################
@@ -138,19 +68,19 @@ class OttoEngine(Model):
     Δ: float = 1
     """The expansion ratio of the modulation."""
 
-    λ_u: float = 1
+    λ_u: float = 0.25
     """
     The portion of the cycle where the transition from ``H_0`` to
     ``H_1`` begins. Ranges from ``0`` to ``1``.
     """
 
-    λ_h: float = 1
+    λ_h: float = 0.5
     """
     The portion of the cycle where the transition from ``H_0`` to
     ``H_1`` ends. Ranges from ``0`` to ``1``.
     """
 
-    λ_d: float = 1
+    λ_d: float = 0.75
     """
     The portion of the cycle where the transition from ``H_1`` to
     ``H_0`` begins. Ranges from ``0`` to ``1``.
@@ -170,7 +100,7 @@ class OttoEngine(Model):
         The length of the timespan the Hamiltonian matches ``H_1``.
         """
 
-        return (self.λ_h - self.λ_d) * self.Θ
+        return (self.λ_d - self.λ_h) * self.Θ
 
     @property
     def τ_u(self) -> float:
@@ -225,27 +155,32 @@ class OttoEngine(Model):
 
         return Periodic(one_cycle, self.Θ)
 
-    @property
-    def qubit_model(self) -> QubitModelMutliBath:
-        """Returns the underlying Qubit model."""
+    # we black-hole the H setter in this model
+    @H.setter
+    def H(self, _):
+        pass
 
-        return QubitModelMutliBath(
-            δ=self.δ,
-            ω_c=self.ω_c,
-            ω_s=self.ω_s,
-            t=self.t,
-            ψ_0=self.ψ_0,
-            description=f"The qubit model underlying the otto cycle with description: {self.description}.",
-            truncation_scheme="simplex",
-            k_max=self.k_max,
-            bcf_terms=self.bcf_terms,
-            driving_process_tolerances=self.driving_process_tolerances,
-            thermal_process_tolerances=self.thermal_process_tolerances,
-            T=self.T,
-            L=self.L,
-            H=self.H,
-            therm_methods=self.therm_methods,
-        )
+    # @property
+    # def qubit_model(self) -> QubitModelMutliBath:
+    #     """Returns the underlying Qubit model."""
+
+    #     return QubitModelMutliBath(
+    #         δ=self.δ,
+    #         ω_c=self.ω_c,
+    #         ω_s=self.ω_s,
+    #         t=self.t,
+    #         ψ_0=self.ψ_0,
+    #         description=f"The qubit model underlying the otto cycle with description: {self.description}.",
+    #         truncation_scheme="simplex",
+    #         k_max=self.k_max,
+    #         bcf_terms=self.bcf_terms,
+    #         driving_process_tolerances=self.driving_process_tolerances,
+    #         thermal_process_tolerances=self.thermal_process_tolerances,
+    #         T=self.T,
+    #         L=self.L,
+    #         H=self.H,
+    #         therm_methods=self.therm_methods,
+    #     )
 
 
 def normalize_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:
