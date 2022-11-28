@@ -167,7 +167,7 @@ class Model(ABC):
 
     @property
     @abstractmethod
-    def coupling_operators(self) -> list[Union[np.ndarray, DynamicMatrix]]:
+    def coupling_operators(self) -> list[DynamicMatrix]:
         """The bath coupling operators :math:`L`."""
 
         pass
