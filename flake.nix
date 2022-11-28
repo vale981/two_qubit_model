@@ -13,7 +13,7 @@
     (utils.lib.poetry2nixWrapper nixpkgs {
       name = "two_qubit_model";
       shellPackages = pkgs: with pkgs; [ black pyright ];
-      python = pkgs: pkgs.python39;
+      python = pkgs: pkgs.python39Full;
       # shellOverride = (oldAttrs: {
       #   shellHook = ''
       #               export PYTHONPATH=/home/hiro/src/hops/:$PYTHONPATH

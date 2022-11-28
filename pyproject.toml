@@ -13,6 +13,7 @@ qutip = "^4.6.3"
 hopsflow = { git = "https://github.com/vale981/hopsflow", branch="main" }
 beartype = "^0.10.1"
 filelock = "^3.6.0"
+matplotlib = "^3.6.2"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.910"
