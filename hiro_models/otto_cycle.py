@@ -223,7 +223,7 @@ class OttoEngine(QubitModelMutliBath):
                 0,
                 t_max,
                 int(t_max // (self.dt * self.Θ)) + 1,
-                2 * np.pi / self.Θ,
+                self.Ω,
             )
 
     @property
@@ -271,6 +271,12 @@ class OttoEngine(QubitModelMutliBath):
             )
             for L_i, timings, orders in zip(self.L, self.timings_L, self.orders_L)
         ]
+
+    @property
+    def Ω(self) -> float:
+        """The modulation base angular frequency."""
+
+        return 2 * np.pi / self.Θ
 
     # @property
     # def qubit_model(self) -> QubitModelMutliBath:
