@@ -10,6 +10,7 @@ import hashlib
 import hops.util.dynamic_matrix as dynamic_matrix
 from hops.util.dynamic_matrix import DynamicMatrix, SmoothStep
 import scipy.special
+from numpy.typing import NDArray
 
 
 @beartype
@@ -206,3 +207,23 @@ def bcf_scale(
         np.pi * float(s) / (scipy.special.gamma(float(s) + 1) * float(ω_c) ** float(s))
     )
     return float(δ) / L_expect * bcf_norm
+
+
+def linspace_with_strobe(
+    begin: float, end: float, N: int, strobe_frequency: float
+) -> NDArray[np.float64]:
+    """
+    Like ``linspace`` but so that the time points defined by the
+    stroboscope angular frequency ``strobe_frequency`` are included.
+    """
+
+    return np.unique(
+        np.sort(
+            np.concatenate(
+                [
+                    np.linspace(begin, end, N),
+                    np.arange(begin, end, 2 * np.pi / strobe_frequency),
+                ]
+            )
+        )
+    )

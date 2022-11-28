@@ -15,12 +15,11 @@ from hops.util.dynamic_matrix import (
     MatrixType,
 )
 from .one_qubit_model import QubitModelMutliBath
-
+from .utility import linspace_with_strobe
 from numpy.typing import ArrayLike, NDArray
-from numbers import Real
 
 
-Timings = tuple[Real, Real, Real, Real]
+Timings = tuple[float, float, float, float]
 Orders = tuple[int, int]
 
 
@@ -167,7 +166,7 @@ class OttoEngine(QubitModelMutliBath):
     Δ: float = 1
     """The expansion ratio of the modulation."""
 
-    timings_H: Timings = field(default_factory=lambda: (0.25, 0.5, 0.75, 1))
+    timings_H: Timings = field(default_factory=lambda: (0.25, 0.5, 0.75, 1.0))
     """The timings for the ``H`` modulation. See :any:`SmoothlyInterpolatdPeriodicMatrix`."""
 
     orders_H: Orders = field(default_factory=lambda: (2, 2))
@@ -181,9 +180,14 @@ class OttoEngine(QubitModelMutliBath):
     orders_L: tuple[Orders, Orders] = field(default_factory=lambda: ((2, 2), (2, 2)))
     """The smoothness of the modulation of ``L``."""
 
-    @property
-    def τ_expansion_finished(self):
-        return self.timings_H[1] * self.Θ
+    num_cycles: int = 1
+    """How many cycles to simulate."""
+
+    dt: float = 0.01
+    """The time resolution relative to the period of modulation."""
+
+    t: Union[np.ndarray, str] = field(default_factory=lambda: "auto")
+    """The simulation time. If set to ``auto``, the time is calculated from :any:`num_cycles`, :any:`Θ` and :any:`dt`."""
 
     def __post_init__(self):
         def objective(ω_s, ω_exp, i):
@@ -211,9 +215,24 @@ class OttoEngine(QubitModelMutliBath):
 
                 self.ω_s[i] = res.x
 
+        if self.t == "auto":
+            t_max = self.num_cycles * self.Θ
+
+            # we set this here to avoid different results on different platforms
+            self.t = linspace_with_strobe(
+                0,
+                t_max,
+                int(t_max // (self.dt * self.Θ)) + 1,
+                2 * np.pi / self.Θ,
+            )
+
+    @property
+    def τ_expansion_finished(self):
+        return self.timings_H[1] * self.Θ
+
     @property
     def H(self) -> DynamicMatrix:
-        """
+        r"""
         Returns the modulated system Hamiltonian.
 
         The system hamiltonian will always be :math:`ω_{\max} * H_1 +
@@ -228,7 +247,7 @@ class OttoEngine(QubitModelMutliBath):
         """
 
         return SmoothlyInterpolatdPeriodicMatrix(
-            (normalize_hamiltonian(self.H_0), normalize_hamiltonian(self.H_1)),
+            (self.H_0, self.H_1),
             self.timings_H,
             self.Θ,
             self.orders_H,
