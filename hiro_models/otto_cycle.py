@@ -143,7 +143,7 @@ class OttoEngine(QubitModelMutliBath):
     """
 
     L: tuple[np.ndarray, np.ndarray] = field(
-        default_factory=lambda: tuple([1 / 2 * (qt.sigmax().full())] * 2)  # type: ignore
+        default_factory=lambda: tuple([(1 / 2 * (qt.sigmax().full())), (1 / 2 * (qt.sigmax().full()))])  # type: ignore
     )
     """The bare coupling operators to the two baths."""
 
