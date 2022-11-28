@@ -104,12 +104,12 @@ class SmoothlyInterpolatdPeriodicMatrix(DynamicMatrix):
             timings=self._timings,
             period=self._period,
             orders=self._orders,
-            amplitude=self._amplitudes,
+            amplitudes=self._amplitudes,
             deriv=self._deriv,
         )
 
 
-@beartype
+@beartype(conf=BeartypeConf(is_pep484_tower=True))
 @dataclass(eq=False)
 class OttoEngine(QubitModelMutliBath):
     r"""
