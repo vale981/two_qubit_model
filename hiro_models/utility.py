@@ -1,3 +1,5 @@
+from datetime import datetime
+import dateutil.parser
 from functools import singledispatchmethod
 import dataclasses
 from dataclasses import dataclass
@@ -96,6 +98,13 @@ class JSONEncoder(json.JSONEncoder):
             "value": obj.__getstate__(),
         }
 
+    @default.register
+    def _(self, obj: datetime):
+        return {
+            "type": "datetime",
+            "value": obj.isoformat(),
+        }
+
     @classmethod
     def dumps(cls, data, **kwargs) -> str:
         """Like :any:`json.dumps`, just for this encoder.
@@ -163,6 +172,9 @@ def object_hook(dct: dict[str, Any]):
 
         if type == "tuple":
             return tuple(dct["value"])
+
+        if type == "datetime":
+            return dateutil.parser.parse(dct["value"])
 
     return dct
 

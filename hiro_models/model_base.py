@@ -17,6 +17,7 @@ from hopsflow.util import EnsembleValue
 import hashlib
 import hops.core.hierarchy_parameters as params
 from collections.abc import Callable
+from datetime import datetime
 
 
 @dataclass
@@ -43,7 +44,14 @@ class Model(ABC):
     breaking changes.
     """
 
-    _ignored_keys: list[str] = field(default_factory=lambda: ["_sigmas", "description"])
+    timestamp: datetime = field(default_factory=lambda: datetime.now())
+    """
+    A timestamp that signals when the simulation was run. Is not used to hash or compare objects.
+    """
+
+    _ignored_keys: list[str] = field(
+        default_factory=lambda: ["_sigmas", "description", "timestamp"]
+    )
     """Keys that are ignored when comparing or hashing models."""
 
     ###########################################################################

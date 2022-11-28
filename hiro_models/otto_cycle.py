@@ -173,7 +173,7 @@ class OttoEngine(QubitModelMutliBath):
     """The smoothness of the modulation of ``H``."""
 
     timings_L: tuple[Timings, Timings] = field(
-        default_factory=lambda: ((0, 0.05, 0.15, 0.2), (0.5, 0.55, 0.65, 0.7))
+        default_factory=lambda: ((0.0, 0.05, 0.15, 0.2), (0.5, 0.55, 0.65, 0.7))
     )
     """The timings for the ``L`` modulation. See :any:`SmoothlyInterpolatdPeriodicMatrix`."""
 
@@ -215,7 +215,7 @@ class OttoEngine(QubitModelMutliBath):
 
                 self.ω_s[i] = res.x
 
-        if self.t == "auto":
+        if isinstance(self.t, str) and self.t == "auto":
             t_max = self.num_cycles * self.Θ
 
             # we set this here to avoid different results on different platforms
