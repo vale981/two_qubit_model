@@ -2,7 +2,6 @@ r"""HOPS Configurations for a simple qubit otto cycle."""
 
 from dataclasses import dataclass, field
 import hopsflow
-from numpy.typing import NDArray
 from typing import Any, Optional, SupportsFloat, Union
 import hops.util.bcf
 import hops.util.bcf_fits
@@ -19,10 +18,109 @@ import stocproc as sp
 from beartype import beartype
 from .utility import StocProcTolerances, bcf_scale
 from .model_base import Model
-import scipy.special
+from scipy.optimize import minimize_scalar
 import hopsflow
-from hops.util.dynamic_matrix import DynamicMatrix, ConstantMatrix, SmoothStep, Periodic
+from hops.util.dynamic_matrix import (
+    DynamicMatrix,
+    ConstantMatrix,
+    SmoothStep,
+    Periodic,
+    MatrixType,
+)
 from .one_qubit_model import QubitModelMutliBath
+
+from numpy.typing import ArrayLike, NDArray
+from numbers import Real
+
+
+Timings = tuple[Real, Real, Real, Real]
+Orders = tuple[int, int]
+
+
+class SmoothlyInterpolatdPeriodicMatrix(DynamicMatrix):
+    """A periodic dynamic matrix that smoothly interpolates between
+    two matrices using :any:`SmoothStep`.
+
+    :param matrices: The two matrices ``M1`` and ``M2`` to interpolate
+        between.
+    :param timings: A tuple that contains the times (relative to the
+        period) when the transition from ``M1`` to ``M2`` begins, when
+        it ends and when the reverse transition begins and when it ends.
+    :param period: The period of the modulation.
+    :param orders: The orders of the smoothstep functions that are
+        being used.  See also :any:`SmoothStep`.
+    :param amplitudes: The amplitudes of the modulation.
+    :param deriv: The order of derivative of the matrix.
+    """
+
+    def __init__(
+        self,
+        matrices: tuple[Union[ArrayLike, list[list]], Union[ArrayLike, list[list]]],
+        timings: Timings,
+        period: float,
+        orders: tuple = (2, 2),
+        amplitudes: tuple[float, float] = (1, 1),
+        deriv: int = 0,
+    ):
+        self._matrices = matrices
+        self._timings = timings
+        self._period = period
+        self._orders = orders
+        self._amplitudes = amplitudes
+        self._deriv = deriv
+
+        M_1, M_2 = matrices
+        s_1, s_2 = orders
+        a_1, a_2 = amplitudes
+
+        one_cycle: DynamicMatrix = a_1 * (
+            (ConstantMatrix(M_1) if deriv == 0 else ConstantMatrix(np.zeros_like(M_1)))
+        )
+
+        if a_1 != 0:
+            one_cycle += a_1 * (
+                SmoothStep(
+                    M_1, timings[2] * period, timings[3] * period, s_2, deriv=deriv
+                )
+                - SmoothStep(
+                    M_1, timings[0] * period, timings[1] * period, s_1, deriv=deriv
+                )
+            )
+
+        if a_2 != 0:
+            one_cycle += a_2 * (
+                SmoothStep(
+                    M_2, timings[0] * period, timings[1] * period, s_1, deriv=deriv
+                )
+                - SmoothStep(
+                    M_2, timings[2] * period, timings[3] * period, s_2, deriv=deriv
+                )
+            )
+
+        self._m = Periodic(one_cycle, period)
+
+    def call(self, t: NDArray[np.float64]) -> MatrixType:
+        return self._m.call(t)
+
+    def derivative(self):
+        return self.__class__(
+            matrices=self._matrices,
+            timings=self._timings,
+            period=self._period,
+            orders=self._orders,
+            amplitudes=self._amplitudes,
+            deriv=self._deriv + 1,
+        )
+
+    def __getstate__(self):
+        return dict(
+            matrices=self._matrices,
+            timings=self._timings,
+            period=self._period,
+            orders=self._orders,
+            amplitude=self._amplitudes,
+            deriv=self._deriv,
+        )
 
 
 @beartype
@@ -58,6 +156,20 @@ class OttoEngine(QubitModelMutliBath):
     is zero and its largest one is one.
     """
 
+    L: tuple[np.ndarray, np.ndarray] = field(
+        default_factory=lambda: tuple([1 / 2 * (qt.sigmax().full())] * 2)  # type: ignore
+    )
+    """The bare coupling operators to the two baths."""
+
+    ω_s: list[Union[SupportsFloat, str]] = field(default_factory=lambda: [2] * 2)
+    """
+    The shift frequencies :math:`ω_s`.  If set to ``'auto'``, the
+    (thermal) spectral densities will be shifted so that the coupling
+    of the first bath is resonant with the hamiltonian before the
+    expansion of the energy gap and the second bath is resonant with
+    the hamiltonian after the expansion.
+    """
+
     ###########################################################################
     #                              Cycle Settings                             #
     ###########################################################################
@@ -68,97 +180,91 @@ class OttoEngine(QubitModelMutliBath):
     Δ: float = 1
     """The expansion ratio of the modulation."""
 
-    λ_u: float = 0.25
-    """
-    The portion of the cycle where the transition from ``H_0`` to
-    ``H_1`` begins. Ranges from ``0`` to ``1``.
-    """
+    timings_H: Timings = field(default_factory=lambda: (0.25, 0.5, 0.75, 1))
+    """The timings for the ``H`` modulation. See :any:`SmoothlyInterpolatdPeriodicMatrix`."""
 
-    λ_h: float = 0.5
-    """
-    The portion of the cycle where the transition from ``H_0`` to
-    ``H_1`` ends. Ranges from ``0`` to ``1``.
-    """
+    orders_H: Orders = field(default_factory=lambda: (2, 2))
+    """The smoothness of the modulation of ``H``."""
 
-    λ_d: float = 0.75
-    """
-    The portion of the cycle where the transition from ``H_1`` to
-    ``H_0`` begins. Ranges from ``0`` to ``1``.
-    """
+    timings_L: tuple[Timings, Timings] = field(
+        default_factory=lambda: ((0, 0.05, 0.15, 0.2), (0.5, 0.55, 0.65, 0.7))
+    )
+    """The timings for the ``L`` modulation. See :any:`SmoothlyInterpolatdPeriodicMatrix`."""
+
+    orders_L: tuple[Orders, Orders] = field(default_factory=lambda: ((2, 2), (2, 2)))
+    """The smoothness of the modulation of ``L``."""
 
     @property
-    def τ_l(self) -> float:
-        """
-        The length of the timespan the Hamiltonian matches ``H_0``.
-        """
+    def τ_expansion_finished(self):
+        return self.timings_H[1] * self.Θ
 
-        return self.λ_u * self.Θ
+    def __post_init__(self):
+        def objective(ω_s, ω_exp, i):
+            self.ω_s[i] = ω_s
+            return -self.full_thermal_spectral_density(i)(ω_exp)
 
-    @property
-    def τ_h(self) -> float:
-        """
-        The length of the timespan the Hamiltonian matches ``H_1``.
-        """
+        ω_exps = [
+            get_energy_gap(self.H(0)),
+            get_energy_gap(self.H(self.τ_expansion_finished)),
+        ]
 
-        return (self.λ_d - self.λ_h) * self.Θ
+        for i, shift in enumerate(self.ω_s):
+            if shift == "auto":
+                res = minimize_scalar(
+                    objective,
+                    1,
+                    method="bounded",
+                    bounds=(0.01, ω_exps[i]),
+                    options=dict(maxiter=100),
+                    args=(ω_exps[i], i),
+                )
 
-    @property
-    def τ_u(self) -> float:
-        """
-        The length of the trasition of the Hamiltonian from ``H_0`` to
-        ``H_1``.
-        """
+                if not res.success:
+                    raise RuntimeError("Cannot optimize SD shift.")
 
-        return (self.λ_h - self.λ_u) * self.Θ
-
-    @property
-    def τ_d(self) -> float:
-        """
-        The length of the trasition of the Hamiltonian from ``H_1`` to
-        ``H_0``.
-        """
-
-        return (1 - self.λ_d) * self.Θ
-
-    @property
-    def Ω(self) -> float:
-        """The base Angular frequency of the cycle."""
-
-        return (2 * np.pi) / self.Θ
+                self.ω_s[i] = res.x
 
     @property
     def H(self) -> DynamicMatrix:
-        r"""
+        """
         Returns the modulated system Hamiltonian.
 
         The system hamiltonian will always be :math:`ω_{\max} * H_1 +
         (ω_{\max} - ω_{\min}) * f(τ) * H_1` where ``H_0`` is a fixed
-        matrix and :math:`f(τ)` models the time dependence.
+        matrix and :math:`f(τ)` models the time dependence.  The time
+        dependce is implemented via
+        :any:`SmoothlyInterpolatdPeriodicMatrix` and leads to a
+        modulation of the levelspacing between ``ε_min=1`` and
+        ``ε_max`` so that ``ε_max/ε_min - 1 = Δ``.
 
-        The modulation :math:`f(τ)` consists of constants and smooth
-        step functions.  For :math:`τ < τ_l` :math:`f(τ) = 0` and for
-        :math:`τ_l + τ_u <= τ < τ_l + τ_u + τ_h` :math:`f(τ) =
-        ε_{\max}`.  The transitions between those states last
-        :math:`τ_u` for :math:`H_0` to :math:`H_1` and :math:`τ_d` for
-        :math:`H_1` to :math:`H_0`.
-
-        The modulation is cyclical with period :any:`T`.
+        The modulation is cyclical with period :any:`Θ`.
         """
 
-        H_0 = normalize_hamiltonian(self.H_0)
-        H_1 = normalize_hamiltonian(self.H_1)
-
-        one_cycle = ConstantMatrix(H_0) + self.Δ * (
-            SmoothStep(H_1, self.λ_u * self.Θ, self.λ_h * self.Θ)
-            - SmoothStep(H_1, self.λ_d * self.Θ, self.Θ)
+        return SmoothlyInterpolatdPeriodicMatrix(
+            (normalize_hamiltonian(self.H_0), normalize_hamiltonian(self.H_1)),
+            self.timings_H,
+            self.Θ,
+            self.orders_H,
+            (1, self.Δ + 1),
         )
-
-        return Periodic(one_cycle, self.Θ)
 
     # we black-hole the H setter in this model
     @H.setter
     def H(self, _):
         pass
+
+    @property
+    def coupling_operators(self) -> list[DynamicMatrix]:
+        return [
+            SmoothlyInterpolatdPeriodicMatrix(
+                (np.zeros_like(L_i), L_i),
+                timings,
+                self.Θ,
+                orders,
+                (0, 1),
+            )
+            for L_i, timings, orders in zip(self.L, self.timings_L, self.orders_L)
+        ]
 
     # @property
     # def qubit_model(self) -> QubitModelMutliBath:
@@ -189,6 +295,12 @@ def normalize_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:
     normalized = hamiltonian - eigvals.min() * np.eye(
         hamiltonian.shape[0], dtype=hamiltonian.dtype
     )
-    normalized /= eigvals.max() - eigvals.min()
+    normalized /= (eigvals.max() - eigvals.min()).real
 
     return normalized
+
+
+def get_energy_gap(hamiltonian: np.ndarray) -> float:
+    eigvals = np.linalg.eigvals(hamiltonian)
+
+    return (eigvals.max() - eigvals.min()).real

@@ -1,7 +1,7 @@
 """A base class for model HOPS configs."""
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union, ClassVar
+from typing import Any, Iterable, Optional, Union, ClassVar
 from hops.util.dynamic_matrix import DynamicMatrix
 from .utility import JSONEncoder, object_hook
 import numpy as np
@@ -139,10 +139,14 @@ class Model(ABC):
             if key not in self._ignored_keys:
                 this_val, other_val = self.__dict__[key], other.__dict__[key]
 
-                same = this_val == other_val
+                if isinstance(this_val, Iterable):
+                    for val_1, val_2 in zip(this_val, other_val):
+                        if not _compare_values(val_1, val_2):
+                            return False
 
-                if isinstance(this_val, np.ndarray):
-                    same = same.all()
+                    continue
+
+                same = _compare_values(this_val, other_val)
 
                 if not same:
                     return False
@@ -508,3 +512,12 @@ def _get_N_kwargs(kwargs: dict, data: HIData) -> tuple[int, dict]:
         del kwargs["N"]
 
     return N, kwargs
+
+
+def _compare_values(this_val, other_val):
+    same = this_val == other_val
+
+    if isinstance(this_val, np.ndarray):
+        same = same.all()
+
+    return same

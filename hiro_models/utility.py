@@ -33,12 +33,38 @@ class JSONEncoder(json.JSONEncoder):
     :any:`TwoQubitModel`.
     """
 
+    def encode(self, obj: Any):
+        def hint_tuples(item: Any):
+            if isinstance(item, tuple):
+                return {
+                    "type": "tuple",
+                    "value": [
+                        hint_tuples(i) if isinstance(i, tuple) else i for i in item
+                    ],
+                }
+            if isinstance(item, list):
+                return [hint_tuples(e) for e in item]
+            if isinstance(item, dict):
+                return {key: hint_tuples(value) for key, value in item.items()}
+            else:
+                return item
+
+        return super().encode(hint_tuples(obj))
+
     @singledispatchmethod
     def default(self, obj: Any):
         if hasattr(obj, "to_dict"):
             return obj.to_dict()
 
         return super().default(obj)
+
+    @default.register(tuple)
+    def _(self, obj: tuple):
+        print("ho")
+        return {
+            "type": "tuple",
+            "value": list(*obj),
+        }
 
     @default.register
     def _(self, arr: np.ndarray):
@@ -133,6 +159,9 @@ def object_hook(dct: dict[str, Any]):
 
         if type == "DynamicMatrix":
             return getattr(dynamic_matrix, dct["subtype"])(**dct["value"])
+
+        if type == "tuple":
+            return tuple(dct["value"])
 
     return dct
 

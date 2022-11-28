@@ -13,6 +13,7 @@ from filelock import FileLock
 from pathlib import Path
 from .one_qubit_model import QubitModel, QubitModelMutliBath
 from .two_qubit_model import TwoQubitModel
+from .otto_cycle import OttoEngine
 from collections.abc import Sequence, Iterator, Iterable
 import shutil
 import logging
@@ -71,6 +72,9 @@ def model_hook(dct: dict[str, Any]):
 
         if model == "QubitModelMutliBath":
             return QubitModelMutliBath.from_dict(treated_vals)
+
+        if model == "OttoEngine":
+            return OttoEngine.from_dict(treated_vals)
 
     return object_hook(dct)
 
