@@ -583,7 +583,7 @@ class QubitModelMutliBath(Model):
 
         return [
             bcf_scale(δ, L, self.t.max(), s, ω)
-            for δ, L, s, ω in zip(self.δ, self.L, self.s, self.ω_c)
+            for δ, L, s, ω in zip(self.δ, self.coupling_operators, self.s, self.ω_c)
         ]
 
     def bcf(
