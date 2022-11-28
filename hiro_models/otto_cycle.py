@@ -5,7 +5,7 @@ from typing import SupportsFloat, Union
 import numpy as np
 import qutip as qt
 
-from beartype import beartype
+from beartype import beartype, BeartypeConf
 from scipy.optimize import minimize_scalar
 from hops.util.dynamic_matrix import (
     DynamicMatrix,

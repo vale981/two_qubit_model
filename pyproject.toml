@@ -11,7 +11,6 @@ python = ">=3.9,<3.11"
 numpy = "^1.20.0"
 qutip = "^4.6.3"
 hopsflow = { git = "https://github.com/vale981/hopsflow", branch="main" }
-beartype = "^0.10.1"
 filelock = "^3.6.0"
 matplotlib = "^3.6.2"
 
