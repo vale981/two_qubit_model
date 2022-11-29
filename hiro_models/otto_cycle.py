@@ -1,5 +1,6 @@
 r"""HOPS Configurations for a simple qubit otto cycle."""
 
+import math
 from dataclasses import dataclass, field
 from typing import SupportsFloat, Union
 import numpy as np
@@ -151,13 +152,9 @@ class OttoEngine(QubitModelMutliBath):
     )
     """The bare coupling operators to the two baths."""
 
-    ω_s: list[Union[SupportsFloat, str]] = field(default_factory=lambda: [2] * 2)
+    ω_s_extra: list[float] = field(default_factory=lambda: [0] * 2)
     """
-    The shift frequencies :math:`ω_s`.  If set to ``'auto'``, the
-    (thermal) spectral densities will be shifted so that the coupling
-    of the first bath is resonant with the hamiltonian before the
-    expansion of the energy gap and the second bath is resonant with
-    the hamiltonian after the expansion.
+    The shift frequencies :math:`ω_s` applied on top of the automatic shift.
     """
 
     ###########################################################################
@@ -190,41 +187,69 @@ class OttoEngine(QubitModelMutliBath):
     dt: float = 0.01
     """The time resolution relative to the period of modulation."""
 
-    t: Union[np.ndarray, str] = field(default_factory=lambda: "auto")
-    """The simulation time. If set to ``auto``, the time is calculated from :any:`num_cycles`, :any:`Θ` and :any:`dt`."""
+    @property
+    def τ_max(self) -> float:
+        """The maximum simulation time."""
 
-    def __post_init__(self):
-        if isinstance(self.t, str) and self.t == "auto":
-            t_max = self.num_cycles * self.Θ
+        return self.num_cycles * self.Θ
 
-            # we set this here to avoid different results on different platforms
-            self.t = linspace_with_strobe(
-                0,
-                t_max,
-                int(t_max // (self.dt * self.Θ)) + 1,
-                self.Ω,
+    @property
+    def t(self) -> NDArray[np.float64]:
+        """The simulation time."""
+
+        return linspace_with_strobe(
+            0,
+            self.τ_max,
+            int(self.τ_max // (self.dt * self.Θ)) + 1,
+            self.Ω,
+        )
+
+    @t.setter
+    def t(self, _):
+        pass
+
+    @property
+    def ω_s(self) -> list[float]:
+        """
+        The frequency shifts of the spectral density.  Calculated so
+        that the effective thermal SD has maximum magnitude at the
+        resonance frequencies of the hamiltonian. :any:`ω_s_extra` is added to those values.
+        """
+
+        return [
+            extra + gap - float(ω_c) * float(s)
+            for ω_c, s, gap, extra in zip(
+                self.ω_c, self.s, self.energy_gaps, self.ω_s_extra
             )
+        ]
+        # super_instance = QubitModelMutliBath(ω_c=self.ω_c, s=self.s, T=self.T)
 
-        def objective(ω_s, ω_exp, i):
-            self.ω_s[i] = ω_s
-            return -self.full_thermal_spectral_density(i)(ω_exp)
+        # def objective(ω_s, ω_exp, i):
+        #     super_instance.ω_s[i] = ω_s
+        #     return -super_instance.full_thermal_spectral_density(i)(ω_exp)
 
-        ω_exps = self.energy_gaps
-        for i, shift in enumerate(self.ω_s):
-            if shift == "auto":
-                res = minimize_scalar(
-                    objective,
-                    1,
-                    method="bounded",
-                    bounds=(0.01, ω_exps[i]),
-                    options=dict(maxiter=100),
-                    args=(ω_exps[i], i),
-                )
+        # ω_s = [ω for ω in self.ω_s_extra]
+        # ω_exps = self.energy_gaps
+        # for i, shift in enumerate(self.ω_s_extra):
+        #     res = minimize_scalar(
+        #         objective,
+        #         1,
+        #         method="bounded",
+        #         bounds=(0.01, ω_exps[i]),
+        #         options=dict(maxiter=100),
+        #         args=(ω_exps[i], i),
+        #     )
 
-                if not res.success:
-                    raise RuntimeError("Cannot optimize SD shift.")
+        #     if not res.success:
+        #         raise RuntimeError("Cannot optimize SD shift.")
 
-                self.ω_s[i] = res.x
+        #     ω_s[i] = shift + round(res.x, number_magnitude(ω_exps[i]) + 3)
+
+        # return ω_s
+
+    @ω_s.setter
+    def ω_s(self, _):
+        pass
 
     @property
     def energy_gaps(self) -> tuple[float, float]:
@@ -335,3 +360,7 @@ def get_energy_gap(hamiltonian: np.ndarray) -> float:
     eigvals = np.linalg.eigvals(hamiltonian)
 
     return (eigvals.max() - eigvals.min()).real
+
+
+def number_magnitude(number: float) -> int:
+    return int(math.log10(number))
