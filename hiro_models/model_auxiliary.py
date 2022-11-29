@@ -247,6 +247,16 @@ def import_results(
                     db[current_hash] = data
 
 
+def remove_models_from_db(models: list[Model], data_path: str = "./.data"):
+    hashes_to_remove = [model.hexhash for model in models]
+
+    with model_db(data_path) as db:
+        for hash in list(db.keys()):
+            if hash in hashes_to_remove:
+                logging.warning(f"Deleting model '{hash}'.")
+                del db[hash]
+
+
 def cleanup(
     models_to_keep: list[Model], data_path: str = "./.data", preview: bool = True
 ):
@@ -290,7 +300,7 @@ def migrate_db_to_new_hashes(
         for old_hash in list(db.keys()):
             data = copy.deepcopy(db[old_hash])
             new_hash = data["model_config"].hexhash
-
+            print(new_hash == old_hash)
             del db[old_hash]
             db[new_hash] = data
 
