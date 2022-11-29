@@ -366,7 +366,7 @@ resolved_reference = "ef9c3a500f9b2aa954a7f5b228c81d5363630b0d"
 
 [[package]]
 name = "hopsflow"
-version = "1.4.2"
+version = "1.5.0"
 description = "Calculating open system bath energy changes with HOPS and analytically."
 category = "main"
 optional = false
@@ -387,7 +387,7 @@ tqdm = "^4.62.3"
 type = "git"
 url = "https://github.com/vale981/hopsflow"
 reference = "main"
-resolved_reference = "0d9aef9364bd37eb31ad59a609d6dc1d3801eb4b"
+resolved_reference = "e2f1c760901494c2878d27bc27d524d126d8711e"
 
 [[package]]
 name = "humanfriendly"

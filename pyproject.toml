@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hiro_models"
-version = "1.2.3"
+version = "1.3.0"
 description = "Operators for a general model of two interacting qubits coupled to two baths."
 authors = ["Valentin Boettcher <hiro at protagon.space>"]
 license = "MIT"
