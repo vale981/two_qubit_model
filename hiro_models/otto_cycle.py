@@ -118,6 +118,10 @@ class OttoEngine(QubitModelMutliBath):
     :any:`one_qubit_model.QubitModelMultiBath` internally.
 
     All attributes can be changed after initialization.
+
+    The bath correlation functions are normalized, so that
+    their corresponding thermal SDs are of the same magnitude
+    at the resonance frequencies.
     """
 
     __version__: int = 1
@@ -190,15 +194,22 @@ class OttoEngine(QubitModelMutliBath):
     """The simulation time. If set to ``auto``, the time is calculated from :any:`num_cycles`, :any:`Θ` and :any:`dt`."""
 
     def __post_init__(self):
+        if isinstance(self.t, str) and self.t == "auto":
+            t_max = self.num_cycles * self.Θ
+
+            # we set this here to avoid different results on different platforms
+            self.t = linspace_with_strobe(
+                0,
+                t_max,
+                int(t_max // (self.dt * self.Θ)) + 1,
+                self.Ω,
+            )
+
         def objective(ω_s, ω_exp, i):
             self.ω_s[i] = ω_s
             return -self.full_thermal_spectral_density(i)(ω_exp)
 
-        ω_exps = [
-            get_energy_gap(self.H(0)),
-            get_energy_gap(self.H(self.τ_expansion_finished)),
-        ]
-
+        ω_exps = self.energy_gaps
         for i, shift in enumerate(self.ω_s):
             if shift == "auto":
                 res = minimize_scalar(
@@ -215,20 +226,28 @@ class OttoEngine(QubitModelMutliBath):
 
                 self.ω_s[i] = res.x
 
-        if isinstance(self.t, str) and self.t == "auto":
-            t_max = self.num_cycles * self.Θ
-
-            # we set this here to avoid different results on different platforms
-            self.t = linspace_with_strobe(
-                0,
-                t_max,
-                int(t_max // (self.dt * self.Θ)) + 1,
-                self.Ω,
+    @property
+    def energy_gaps(self) -> tuple[float, float]:
+        return tuple(
+            sorted(
+                (
+                    get_energy_gap(self.H(0)),
+                    get_energy_gap(self.H(self.τ_expansion_finished)),
+                )
             )
+        )
 
     @property
     def τ_expansion_finished(self):
         return self.timings_H[1] * self.Θ
+
+    @property
+    def bcf_scales(self) -> list[float]:
+        gaps = self.energy_gaps
+        return [
+            float(δ) / float(self.full_thermal_spectral_density(i)(gap))
+            for (i, gap), δ in zip(enumerate(gaps), self.δ)
+        ]
 
     @property
     def H(self) -> DynamicMatrix:
