@@ -63,7 +63,6 @@ class JSONEncoder(json.JSONEncoder):
 
     @default.register(tuple)
     def _(self, obj: tuple):
-        print("ho")
         return {
             "type": "tuple",
             "value": list(*obj),

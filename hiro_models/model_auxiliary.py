@@ -42,9 +42,11 @@ def model_db(data_path: str = "./.data"):
         db_path.touch(exist_ok=True)
         with db_path.open("r+") as f:
             data = f.read()
-            db = (
-                JSONEncoder.loads(data, object_hook=model_hook) if len(data) > 0 else {}
-            )
+            db = JSONEncoder.loads(data) if len(data) > 0 else {}
+            db = {
+                key: model_hook(value) if isinstance(value, dict) else value
+                for key, value in db.items()
+            }
 
             yield db
 
@@ -76,7 +78,7 @@ def model_hook(dct: dict[str, Any]):
         if model == "OttoEngine":
             return OttoEngine.from_dict(treated_vals)
 
-    return object_hook(dct)
+    return dct
 
 
 def integrate_multi(models: Sequence[Model], *args, **kwargs):
