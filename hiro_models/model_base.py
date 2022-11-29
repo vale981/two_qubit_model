@@ -18,6 +18,7 @@ import hashlib
 import hops.core.hierarchy_parameters as params
 from collections.abc import Callable
 from datetime import datetime
+import pickle
 
 
 @dataclass
@@ -352,6 +353,123 @@ class Model(ABC):
             N=N,
             **kwargs,
         )
+
+    def all_energies_online_from_cache(
+        self,
+    ) -> tuple[
+        EnsembleValue, EnsembleValue, EnsembleValue, EnsembleValue, EnsembleValue
+    ]:
+
+        names = ["flow", "interaction", "interaction_power", "system", "system_power"]
+
+        hexhash = self.hexhash
+        results = []
+
+        for name in names:
+            results.append(hopsflow.util.load_online_cache(f"{name}_{hexhash}"))
+
+        return tuple(results)
+
+    def all_energies_online(
+        self,
+        stream_pipe: str = "results.fifo",
+        **kwargs,
+    ) -> Optional[
+        tuple[EnsembleValue, EnsembleValue, EnsembleValue, EnsembleValue, EnsembleValue]
+    ]:
+        """Calculates the bath energy flow, the interaction energy,
+        the interaction power, the system energy and the system power
+        from the trajectories dumped into ``stream_pipe``.
+
+        The ``kwargs`` are passed on to
+        :any:`hopsflow.util.ensemble_mean_online`.
+
+        :returns: At tuple of :any:`hopsflow.util.EnsembleValue`.
+        """
+
+        flow_name = f"flow_{self.hexhash}"
+        flow_worker = hopsflow.hopsflow.make_heat_flow_worker(
+            self.hopsflow_system, self.hopsflow_therm(self.t)
+        )
+
+        interaction_name = f"interaction_{self.hexhash}"
+        interaction_worker = hopsflow.hopsflow.make_interaction_worker(
+            self.hopsflow_system, self.hopsflow_therm(self.t), power=False
+        )
+
+        interaction_power_name = f"interaction_power_{self.hexhash}"
+        interaction_power_worker = hopsflow.hopsflow.make_interaction_worker(
+            self.hopsflow_system, self.hopsflow_therm(self.t), power=True
+        )
+
+        system_name = f"system_{self.hexhash}"
+        system_worker = hopsflow.util.make_operator_expectation_task(
+            self.system, self.t, normalize=True, real=True
+        )
+
+        system_power_name = f"system_power_{self.hexhash}"
+        system_power_worker = hopsflow.util.make_operator_expectation_task(
+            self.system.derivative(), self.t, normalize=True, real=True
+        )
+
+        flow, interaction, interaction_power, system, system_power = (
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+        with open(stream_pipe, "rb") as fifo:
+            while True:
+                try:
+                    (
+                        _,
+                        psi0,
+                        aux_states,
+                        _,
+                        _,
+                        rng_seed,
+                    ) = pickle.load(fifo)
+                    flow = hopsflow.util.ensemble_mean_online(
+                        (psi0, aux_states, rng_seed),
+                        flow_name,
+                        flow_worker,
+                        **kwargs,
+                    )
+
+                    interaction = hopsflow.util.ensemble_mean_online(
+                        (psi0, aux_states, rng_seed),
+                        interaction_name,
+                        interaction_worker,
+                        **kwargs,
+                    )
+
+                    interaction_power = hopsflow.util.ensemble_mean_online(
+                        (psi0, aux_states, rng_seed),
+                        interaction_power_name,
+                        interaction_power_worker,
+                        **kwargs,
+                    )
+
+                    system = hopsflow.util.ensemble_mean_online(
+                        (psi0),
+                        system_name,
+                        system_worker,
+                        **kwargs,
+                    )
+
+                    system_power = hopsflow.util.ensemble_mean_online(
+                        (psi0),
+                        system_power_name,
+                        system_power_worker,
+                        **kwargs,
+                    )
+
+                except EOFError:
+                    break
+
+        return flow, interaction, interaction_power, system, system_power
 
     def interaction_energy(self, data: HIData, **kwargs) -> EnsembleValue:
         """Calculates interaction energy from the hierarchy data
