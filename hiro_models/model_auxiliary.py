@@ -101,6 +101,7 @@ def integrate(
     single_process: bool = False,
     stream_file: Optional[str] = None,
     analyze: bool = False,
+    results_path: str = "results",
     analyze_kwargs: Optional[dict] = None,
 ):
     """Integrate the hops equations for the model.
@@ -145,7 +146,9 @@ def integrate(
         logging.info("Starting analysis process.")
         analysis_process = Process(
             target=lambda: model.all_energies_online(
-                stream_pipe=stream_file, **analyze_kwargs
+                stream_pipe=stream_file,
+                results_directory=results_path,
+                **analyze_kwargs,
             )
         )
 
@@ -162,10 +165,21 @@ def integrate(
 
     with supervisor.get_data(True, stream=False) as data:
         with model_db(data_path) as db:
-            db[hash] = {
+            dct = {
                 "model_config": model.to_dict(),
                 "data_path": str(Path(data.hdf5_name).relative_to(data_path)),
             }
+
+            if analysis_process:
+                dct["analysis_files"] = {
+                    "flow": model.online_flow_name,
+                    "interaction": model.online_interaction_name,
+                    "interaction_power": model.online_interaction_power_name,
+                    "system": model.online_system_name,
+                    "system_power": model.online_system_power_name,
+                }
+
+            db[hash] = dct
 
 
 def get_data(
