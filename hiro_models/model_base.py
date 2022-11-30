@@ -296,10 +296,7 @@ class Model(ABC):
         if not os.path.exists(file_path):
             raise RuntimeError(f"No data found under '{file_path}'.")
 
-        with open(file_path, "rb") as f:
-            res: WelfordAggregator = pickle.load(f)
-
-        return res.ensemble_value
+        return hopsflow.util.WelfordAggregator.from_dump(file_path).ensemble_value
 
     def system_energy(
         self, data: Optional[HIData] = None, results_path: str = "results", **kwargs
@@ -393,31 +390,31 @@ class Model(ABC):
     def online_flow_name(self):
         """The filename where the online flow is saved."""
 
-        return f"flow_{self.hexhash}.pickle"
+        return f"flow_{self.hexhash}.npz"
 
     @property
     def online_interaction_name(self):
         """The filename where the online interaction is saved."""
 
-        return f"interaction_{self.hexhash}.pickle"
+        return f"interaction_{self.hexhash}.npz"
 
     @property
     def online_interaction_power_name(self):
         """The filename where the online interaction power is saved."""
 
-        return f"interaction_power_{self.hexhash}.pickle"
+        return f"interaction_power_{self.hexhash}.npz"
 
     @property
     def online_system_name(self):
         """The filename where the online system is saved."""
 
-        return f"system_{self.hexhash}.pickle"
+        return f"system_{self.hexhash}.npz"
 
     @property
     def online_system_power_name(self):
         """The filename where the online system power is saved."""
 
-        return f"system_power_{self.hexhash}.pickle"
+        return f"system_power_{self.hexhash}.npz"
 
     def all_energies_online(
         self,
