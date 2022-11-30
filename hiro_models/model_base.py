@@ -424,7 +424,7 @@ class Model(ABC):
             while True:
                 try:
                     (
-                        _,
+                        idx,
                         psi0,
                         aux_states,
                         _,
@@ -435,6 +435,7 @@ class Model(ABC):
                         (psi0, aux_states, rng_seed),
                         flow_name,
                         flow_worker,
+                        idx,
                         **kwargs,
                     )
 
@@ -442,6 +443,7 @@ class Model(ABC):
                         (psi0, aux_states, rng_seed),
                         interaction_name,
                         interaction_worker,
+                        idx,
                         **kwargs,
                     )
 
@@ -449,6 +451,7 @@ class Model(ABC):
                         (psi0, aux_states, rng_seed),
                         interaction_power_name,
                         interaction_power_worker,
+                        idx,
                         **kwargs,
                     )
 
@@ -456,6 +459,7 @@ class Model(ABC):
                         (psi0),
                         system_name,
                         system_worker,
+                        idx,
                         **kwargs,
                     )
 
@@ -463,6 +467,7 @@ class Model(ABC):
                         (psi0),
                         system_power_name,
                         system_power_worker,
+                        idx,
                         **kwargs,
                     )
 
