@@ -161,7 +161,6 @@ def integrate(
         del _
 
         if analysis_process is not None:
-            analysis_process.kill()
             analysis_process.join()
 
     with signal_delay.sig_delay(
