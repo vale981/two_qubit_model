@@ -146,52 +146,56 @@ def integrate(
             analyze_kwargs = dict()
 
         logging.info("Starting analysis process.")
-        analysis_process = Process(
-            target=lambda: model.all_energies_online(
+
+        def target():
+            for sgn in [signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGUSR1]:
+                signal.signal(sgn, signal.SIG_IGN)
+
+            model.all_energies_online(
                 stream_pipe=stream_file,
                 results_directory=results_path,
                 **analyze_kwargs,
             )
-        )
+
+        analysis_process = Process(target=target)
 
         analysis_process.start()
         logging.info(f"Started analysis process with pid {analysis_process.pid}.")
 
-    def signal_handler(_):
+    def cleanup(_):
         del _
 
         if analysis_process is not None:
             analysis_process.join()
 
+        with supervisor.get_data(True, stream=False) as data:
+            with model_db(data_path) as db:
+                dct = {
+                    "model_config": model.to_dict(),
+                    "data_path": str(Path(data.hdf5_name).relative_to(data_path)),
+                }
+
+                if analysis_process:
+                    dct["analysis_files"] = {
+                        "flow": model.online_flow_name,
+                        "interaction": model.online_interaction_name,
+                        "interaction_power": model.online_interaction_power_name,
+                        "system": model.online_system_name,
+                        "system_power": model.online_system_power_name,
+                    }
+
+                db[hash] = dct
+
     with signal_delay.sig_delay(
         [signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGUSR1],
-        signal_handler,
+        cleanup,
     ):
         if single_process:
             supervisor.integrate_single_process(clear_pd)
         else:
             supervisor.integrate(clear_pd)
 
-    if analysis_process:
-        analysis_process.join()
-
-    with supervisor.get_data(True, stream=False) as data:
-        with model_db(data_path) as db:
-            dct = {
-                "model_config": model.to_dict(),
-                "data_path": str(Path(data.hdf5_name).relative_to(data_path)),
-            }
-
-            if analysis_process:
-                dct["analysis_files"] = {
-                    "flow": model.online_flow_name,
-                    "interaction": model.online_interaction_name,
-                    "interaction_power": model.online_interaction_power_name,
-                    "system": model.online_system_name,
-                    "system_power": model.online_system_power_name,
-                }
-
-            db[hash] = dct
+    cleanup(0)
 
 
 def get_data(
