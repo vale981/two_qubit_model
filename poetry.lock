@@ -388,7 +388,7 @@ tqdm = "^4.62.3"
 type = "git"
 url = "https://github.com/vale981/hopsflow"
 reference = "main"
-resolved_reference = "5afd2b6e081591350739b4c483dc0bf356a80b2a"
+resolved_reference = "51a55945cc1953442c8d10852a3793fb0414c853"
 
 [[package]]
 name = "humanfriendly"
