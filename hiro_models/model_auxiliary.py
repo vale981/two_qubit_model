@@ -21,6 +21,8 @@ import copy
 import os
 import numpy as np
 from multiprocessing import Process
+import hops.core.signal_delay as signal_delay
+import signal
 
 
 @contextmanager
@@ -155,10 +157,21 @@ def integrate(
         analysis_process.start()
         logging.info(f"Started analysis process with pid {analysis_process.pid}.")
 
-    if single_process:
-        supervisor.integrate_single_process(clear_pd)
-    else:
-        supervisor.integrate(clear_pd)
+    def signal_handler(_):
+        del _
+
+        if analysis_process is not None:
+            analysis_process.kill()
+            analysis_process.join()
+
+    with signal_delay.sig_delay(
+        [signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGUSR1],
+        signal_handler,
+    ):
+        if single_process:
+            supervisor.integrate_single_process(clear_pd)
+        else:
+            supervisor.integrate(clear_pd)
 
     if analysis_process:
         analysis_process.join()
