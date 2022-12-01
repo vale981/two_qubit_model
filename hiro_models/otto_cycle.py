@@ -167,14 +167,14 @@ class OttoEngine(QubitModelMutliBath):
     Δ: float = 1
     """The expansion ratio of the modulation."""
 
-    timings_H: Timings = field(default_factory=lambda: (0.25, 0.5, 0.75, 1.0))
+    timings_H: Timings = field(default_factory=lambda: (0, 0.1, 0.5, 0.6))
     """The timings for the ``H`` modulation. See :any:`SmoothlyInterpolatdPeriodicMatrix`."""
 
     orders_H: Orders = field(default_factory=lambda: (2, 2))
     """The smoothness of the modulation of ``H``."""
 
     timings_L: tuple[Timings, Timings] = field(
-        default_factory=lambda: ((0.0, 0.05, 0.15, 0.2), (0.5, 0.55, 0.65, 0.7))
+        default_factory=lambda: ((0.6, 0.7, 0.9, 1), (0.1, 0.2, 0.4, 0.5))
     )
     """The timings for the ``L`` modulation. See :any:`SmoothlyInterpolatdPeriodicMatrix`."""
 
@@ -184,7 +184,7 @@ class OttoEngine(QubitModelMutliBath):
     num_cycles: int = 1
     """How many cycles to simulate."""
 
-    dt: float = 0.01
+    dt: float = 0.001
     """The time resolution relative to the period of modulation."""
 
     @property
@@ -253,6 +253,11 @@ class OttoEngine(QubitModelMutliBath):
 
     @property
     def energy_gaps(self) -> tuple[float, float]:
+        """
+        The energy gaps of the working medium in compressed and
+        expanded state.
+        """
+
         return tuple(
             sorted(
                 (
@@ -264,7 +269,13 @@ class OttoEngine(QubitModelMutliBath):
 
     @property
     def τ_expansion_finished(self):
+        """Time when the working medium is fully expanded."""
         return self.timings_H[1] * self.Θ
+
+    @property
+    def τ_compressed(self):
+        """Time when the working medium is fully copressed."""
+        return 0
 
     @property
     def bcf_scales(self) -> list[float]:
