@@ -175,10 +175,14 @@ class OttoEngine(QubitModelMutliBath):
     orders_H: Orders = field(default_factory=lambda: (2, 2))
     """The smoothness of the modulation of ``H``."""
 
-    timings_L: tuple[Timings, Timings] = field(
+    timings_L: tuple[Optional[Timings], Optional[Timings]] = field(
         default_factory=lambda: ((0.6, 0.7, 0.9, 1), (0.1, 0.2, 0.4, 0.5))
     )
-    """The timings for the ``L`` modulation. See :any:`SmoothlyInterpolatdPeriodicMatrix`."""
+    """
+    The timings for the ``L`` modulation.  See
+    :any:`SmoothlyInterpolatdPeriodicMatrix`.  If no timing is given,
+    modulation is disabled.
+    """
 
     orders_L: tuple[Orders, Orders] = field(default_factory=lambda: ((2, 2), (2, 2)))
     """The smoothness of the modulation of ``L``."""
@@ -327,7 +331,9 @@ class OttoEngine(QubitModelMutliBath):
     @property
     def coupling_operators(self) -> list[DynamicMatrix]:
         return [
-            SmoothlyInterpolatdPeriodicMatrix(
+            ConstantMatrix(L_i)
+            if timings is None
+            else SmoothlyInterpolatdPeriodicMatrix(
                 (np.zeros_like(L_i), L_i),
                 timings,
                 self.Θ,
