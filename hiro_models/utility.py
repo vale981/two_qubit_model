@@ -238,3 +238,23 @@ def linspace_with_strobe(
             )
         )
     )
+
+
+def strobe_times(time: NDArray[np.float64], frequency: float, tolerance: float = 1e-4):
+    r"""
+    Given a time array ``time`` and an angular frequency ``frequency`` (ω) the
+    time points (and their indices) coinciding with :math:`2π / ω \cdot n` within the
+    ``tolerance`` are being returned.
+    """
+
+    stroboscope_interval = 2 * np.pi / frequency
+    sorted_times = np.sort(time)
+    tolerance = min(tolerance, (sorted_times[1:] - sorted_times[:-1]).min() / 2)
+    strobe_indices = np.where((time % stroboscope_interval) <= tolerance)[0]
+
+    if len(strobe_indices) == 0:
+        raise ValueError("Can't match the strobe interval to the times.")
+
+    strobe_times = time[strobe_indices]
+
+    return strobe_times, strobe_indices

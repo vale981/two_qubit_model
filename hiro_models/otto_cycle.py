@@ -16,9 +16,10 @@ from hops.util.dynamic_matrix import (
     MatrixType,
 )
 from .one_qubit_model import QubitModelMutliBath
-from .utility import linspace_with_strobe
+from .utility import linspace_with_strobe, strobe_times
 from numpy.typing import ArrayLike, NDArray
-
+from typing import Optional
+from hops.core.hierarchy_data import HIData
 
 Timings = tuple[float, float, float, float]
 Orders = tuple[int, int]
@@ -204,6 +205,14 @@ class OttoEngine(QubitModelMutliBath):
             self.Ω,
         )
 
+    @property
+    def strobe(self):
+        """
+        Returns a tuple with the times where a cycle is complete and
+        their corresponding indices.
+        """
+        return strobe_times(self.t, self.Ω)
+
     @t.setter
     def t(self, _):
         pass
@@ -354,6 +363,58 @@ class OttoEngine(QubitModelMutliBath):
     #         H=self.H,
     #         therm_methods=self.therm_methods,
     #     )
+
+    def steady_index(
+        self, σ_factor=2, data: Optional[HIData] = None, **kwargs
+    ) -> Optional[int]:
+        """
+        Determine using the system energy (``data`` and ``kwargs`` are
+        being passed to :any:`system_energy`) when the periodic steady
+        state has been reached.
+
+        This is being done by comparing the change of the system
+        energy from cycle to cycle against the standard deviation of
+        this value multiplied by ``σ_factor``.
+        """
+        _, indices = self.strobe
+
+        Δ_system = abs(
+            (
+                self.system_energy(data, **kwargs).slice(indices[1:])
+                - self.system_energy(data, **kwargs).slice(indices[:-1])
+            )
+            * (1 / get_energy_gap(self.H(0)))
+        )
+
+        steady_mask = Δ_system.value < Δ_system.σ * 2
+        idx = np.argmax(steady_mask) + 1
+
+        if steady_mask[idx:].all():
+            return int(idx)
+
+        return False
+
+    def steady_energy_change(self, σ_factor=2, data: Optional[HIData] = None, **kwargs):
+        """
+        The steady energy change computed from ``data`` or online
+        data.  The ``kwargs`` are being passed on to the analysis
+        methods.
+        """
+
+        _, indices = self.strobe
+        steady_idx = self.steady_index(σ_factor, data, **kwargs)
+
+        if steady_idx is None:
+            raise RuntimeError("No steady state available.")
+
+        Δ_energies = self.total_energy().slice(indices[1:]) - self.total_energy().slice(
+            indices[:-1]
+        )
+
+        return Δ_energies.mean
+
+    def power(self, *args, **kwargs):
+        return self.steady_energy_change(*args, **kwargs) * (1 / self.Θ)
 
 
 def normalize_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:
