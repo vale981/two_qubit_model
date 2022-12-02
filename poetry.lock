@@ -87,7 +87,7 @@ test-tox-coverage = ["coverage (>=5.5)"]
 type = "git"
 url = "https://github.com/beartype/beartype"
 reference = "main"
-resolved_reference = "8f33d55d7673dc7f2e57216ed03e27d9b971f443"
+resolved_reference = "f536570a1b8dc1d8f5cb3c07e93ce7915eabb899"
 
 [[package]]
 name = "binfootprint"
@@ -388,7 +388,7 @@ tqdm = "^4.62.3"
 type = "git"
 url = "https://github.com/vale981/hopsflow"
 reference = "main"
-resolved_reference = "51a55945cc1953442c8d10852a3793fb0414c853"
+resolved_reference = "9c3fc669f6a103e70af7b04e7f5f057448be66d2"
 
 [[package]]
 name = "humanfriendly"

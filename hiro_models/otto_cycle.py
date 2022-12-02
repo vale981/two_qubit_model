@@ -20,6 +20,7 @@ from .utility import linspace_with_strobe, strobe_times
 from numpy.typing import ArrayLike, NDArray
 from typing import Optional
 from hops.core.hierarchy_data import HIData
+from hopsflow.util import EnsembleValue
 
 Timings = tuple[float, float, float, float]
 Orders = tuple[int, int]
@@ -365,7 +366,7 @@ class OttoEngine(QubitModelMutliBath):
     #     )
 
     def steady_index(
-        self, σ_factor=2, data: Optional[HIData] = None, **kwargs
+        self, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs
     ) -> Optional[int]:
         """
         Determine using the system energy (``data`` and ``kwargs`` are
@@ -386,7 +387,7 @@ class OttoEngine(QubitModelMutliBath):
             * (1 / get_energy_gap(self.H(0)))
         )
 
-        steady_mask = Δ_system.value < Δ_system.σ * 2
+        steady_mask = Δ_system.value < Δ_system.σ * σ_factor
         idx = np.argmax(steady_mask) + 1
 
         if steady_mask[idx:].all():
@@ -394,27 +395,70 @@ class OttoEngine(QubitModelMutliBath):
 
         return False
 
-    def steady_energy_change(self, σ_factor=2, data: Optional[HIData] = None, **kwargs):
+    def get_steady_values(self, value: EnsembleValue, *args, **kwargs):
+        """
+        Get the value of ``value`` at the steady state indices.  For
+        the rest arguments sse :any:`steady_index`.
+        """
+
+        _, indices = self.strobe
+        steady_idx = self.steady_index(*args, **kwargs)
+
+        if steady_idx is None:
+            raise RuntimeError("No steady state available.")
+
+        return value.slice(indices[steady_idx:])
+
+    def steady_total_energy_change(
+        self, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs
+    ):
         """
         The steady energy change computed from ``data`` or online
         data.  The ``kwargs`` are being passed on to the analysis
         methods.
         """
 
-        _, indices = self.strobe
-        steady_idx = self.steady_index(σ_factor, data, **kwargs)
-
-        if steady_idx is None:
-            raise RuntimeError("No steady state available.")
-
-        Δ_energies = self.total_energy().slice(indices[1:]) - self.total_energy().slice(
-            indices[:-1]
+        energies = self.get_steady_values(
+            self.total_energy_from_power(data, **kwargs), σ_factor, data, **kwargs
         )
+        Δ_energies = energies.slice(slice(1, None)) - energies.slice(slice(0, -1))
+        print(Δ_energies)
+
+        return Δ_energies.mean
+
+    def steady_bath_energy_change(
+        self, bath: int, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs
+    ):
+        """
+        The steady energy change computed from ``data`` or online
+        data.  The ``kwargs`` are being passed on to the analysis
+        methods.
+        """
+
+        energies = self.get_steady_values(
+            self.bath_energy(data, **kwargs).for_bath(bath), σ_factor, data, **kwargs
+        )
+
+        Δ_energies = energies.slice(slice(1, None)) - energies.slice(slice(0, -1))
 
         return Δ_energies.mean
 
     def power(self, *args, **kwargs):
-        return self.steady_energy_change(*args, **kwargs) * (1 / self.Θ)
+        """
+        Calculate the mean steady state power.  For the arguments see
+        :any:`steady_energy_change`.
+        """
+        return self.steady_total_energy_change(*args, **kwargs) * (1 / self.Θ)
+
+    def efficiency(self, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs):
+        """
+        Calculate the steady state efficiency.  For the arguments see
+        :any:`steady_energy_change`.
+        """
+
+        Δ_bath = self.steady_bath_energy_change(1, σ_factor, data, **kwargs)
+
+        return self.steady_total_energy_change(σ_factor, data, **kwargs) / Δ_bath.mean
 
 
 def normalize_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:
