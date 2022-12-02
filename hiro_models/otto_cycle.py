@@ -422,7 +422,6 @@ class OttoEngine(QubitModelMutliBath):
             self.total_energy_from_power(data, **kwargs), σ_factor, data, **kwargs
         )
         Δ_energies = energies.slice(slice(1, None)) - energies.slice(slice(0, -1))
-        print(Δ_energies)
 
         return Δ_energies.mean
 
