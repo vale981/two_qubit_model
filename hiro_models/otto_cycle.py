@@ -193,6 +193,10 @@ class OttoEngine(QubitModelMutliBath):
     dt: float = 0.001
     """The time resolution relative to the period of modulation."""
 
+    shift_to_resonance: tuple[bool, bool] = field(default_factory=lambda: (True, True))
+
+    """Weather to to shift the spectral densities to the resonance point."""
+
     @property
     def τ_max(self) -> float:
         """The maximum simulation time."""
@@ -231,9 +235,13 @@ class OttoEngine(QubitModelMutliBath):
         """
 
         return [
-            extra + gap - float(ω_c) * float(s)
-            for ω_c, s, gap, extra in zip(
-                self.ω_c, self.s, self.energy_gaps, self.ω_s_extra
+            extra + ((gap - float(ω_c) * float(s)) if do_shift else 0)
+            for ω_c, s, gap, extra, do_shift in zip(
+                self.ω_c,
+                self.s,
+                self.energy_gaps,
+                self.ω_s_extra,
+                self.shift_to_resonance,
             )
         ]
         # super_instance = QubitModelMutliBath(ω_c=self.ω_c, s=self.s, T=self.T)
