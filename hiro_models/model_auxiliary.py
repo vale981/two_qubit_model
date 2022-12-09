@@ -63,7 +63,6 @@ def model_hook(dct: dict[str, Any]):
 
     if "__model__" in dct:
         model = dct["__model__"]
-
         treated_vals = {
             key: object_hook(val) if isinstance(val, dict) else val
             for key, val in dct.items()
@@ -80,6 +79,10 @@ def model_hook(dct: dict[str, Any]):
 
         if model == "OttoEngine":
             return OttoEngine.from_dict(treated_vals)
+
+    for key, value in dct.items():
+        if isinstance(value, dict):
+            dct[key] = model_hook(value)
 
     return dct
 
@@ -375,7 +378,6 @@ def migrate_db_to_new_hashes(
         for old_hash in list(db.keys()):
             data = copy.deepcopy(db[old_hash])
             new_hash = data["model_config"].hexhash
-            print(new_hash == old_hash)
             del db[old_hash]
             db[new_hash] = data
 

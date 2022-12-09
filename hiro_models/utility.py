@@ -13,6 +13,7 @@ import hops.util.dynamic_matrix as dynamic_matrix
 from hops.util.dynamic_matrix import DynamicMatrix, SmoothStep
 import scipy.special
 from numpy.typing import NDArray
+from collections.abc import Iterable
 
 
 @beartype
@@ -30,6 +31,24 @@ class StocProcTolerances:
     """Interpolation tolerance."""
 
 
+def hint_tuples(item: Any, rec=False):
+    if hasattr(item, "to_dict"):
+        item = item.to_dict()
+
+    if isinstance(item, dict):
+        return {key: hint_tuples(value, True) for key, value in item.items()}
+    if isinstance(item, tuple):
+        return {
+            "type": "tuple",
+            "value": [hint_tuples(i) for i in item],
+        }
+
+    if isinstance(item, list):
+        return [hint_tuples(e, True) for e in item]
+    else:
+        return item
+
+
 class JSONEncoder(json.JSONEncoder):
     """
     A custom encoder to serialize objects occuring in
@@ -37,25 +56,14 @@ class JSONEncoder(json.JSONEncoder):
     """
 
     def encode(self, obj: Any):
-        def hint_tuples(item: Any):
-            if isinstance(item, tuple):
-                return {
-                    "type": "tuple",
-                    "value": [
-                        hint_tuples(i) if isinstance(i, tuple) else i for i in item
-                    ],
-                }
-            if isinstance(item, list):
-                return [hint_tuples(e) for e in item]
-            if isinstance(item, dict):
-                return {key: hint_tuples(value) for key, value in item.items()}
-            else:
-                return item
-
         return super().encode(hint_tuples(obj))
 
     @singledispatchmethod
     def default(self, obj: Any):
+        if isinstance(obj, tuple):
+            import pdb
+
+            pdb.set_trace()
         if hasattr(obj, "to_dict"):
             return obj.to_dict()
 
