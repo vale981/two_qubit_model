@@ -419,7 +419,6 @@ class OttoEngine(QubitModelMutliBath):
 
         if steady_idx is None:
             raise RuntimeError("No steady state available.")
-
         return value.slice(indices[steady_idx:])
 
     def steady_total_energy_change(
