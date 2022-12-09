@@ -87,7 +87,7 @@ test-tox-coverage = ["coverage (>=5.5)"]
 type = "git"
 url = "https://github.com/beartype/beartype"
 reference = "main"
-resolved_reference = "f536570a1b8dc1d8f5cb3c07e93ce7915eabb899"
+resolved_reference = "b48a56fb497b36aa9640c107caa6bc85e02f5782"
 
 [[package]]
 name = "binfootprint"
@@ -362,7 +362,7 @@ plotting = ["matplotlib (>=3.5.0,<4.0.0)"]
 type = "git"
 url = "git@gitlab.hrz.tu-chemnitz.de:s8896854--tu-dresden.de/hops.git"
 reference = "main"
-resolved_reference = "ef9c3a500f9b2aa954a7f5b228c81d5363630b0d"
+resolved_reference = "573274ec04be0a65f0e035885ce387247887b1e8"
 
 [[package]]
 name = "hopsflow"
@@ -388,7 +388,7 @@ tqdm = "^4.62.3"
 type = "git"
 url = "https://github.com/vale981/hopsflow"
 reference = "main"
-resolved_reference = "9c3fc669f6a103e70af7b04e7f5f057448be66d2"
+resolved_reference = "e27e38b656b18e0bf3066d72e76ed1d467f26a5c"
 
 [[package]]
 name = "humanfriendly"

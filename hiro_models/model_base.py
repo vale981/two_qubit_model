@@ -296,7 +296,7 @@ class Model(ABC):
         if not os.path.exists(file_path):
             raise RuntimeError(f"No data found under '{file_path}'.")
 
-        return hopsflow.util.WelfordAggregator.from_dump(file_path).ensemble_value
+        return hopsflow.util.get_online_values_from_cache(file_path)
 
     def system_energy(
         self, data: Optional[HIData] = None, results_path: str = "results", **kwargs
@@ -589,7 +589,7 @@ class Model(ABC):
 
         return self.interaction_power(data, **kwargs).integrate(self.t)
 
-    def bath_energy(self, data: Optional[HIData], **kwargs) -> EnsembleValue:
+    def bath_energy(self, data: Optional[HIData] = None, **kwargs) -> EnsembleValue:
         """Calculates bath energy by integrating the bath energy flow
         calculated from the ``data`` or, if not supplied, tries to load
         the online results from ``results_path``.

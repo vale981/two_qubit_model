@@ -23,6 +23,8 @@ import numpy as np
 from multiprocessing import Process
 import hops.core.signal_delay as signal_delay
 import signal
+from typing import Union
+import hopsflow.util
 
 
 @contextmanager
@@ -55,7 +57,7 @@ def model_db(data_path: str = "./.data"):
 
             f.truncate(0)
             f.seek(0)
-            f.write(JSONEncoder.dumps(db))
+            f.write(JSONEncoder.dumps(db, indent=4))
 
 
 def model_hook(dct: dict[str, Any]):
@@ -261,6 +263,8 @@ def is_smaller(first: Path, second: Path) -> bool:
 def import_results(
     data_path: str = "./.data",
     other_data_path: str = "./.data_other",
+    results_path: Union[Path, str] = "./results",
+    other_results_path: Union[Path, str] = "./results_other",
     interactive: bool = False,
     models_to_import: Optional[Iterable[Model]] = None,
 ):
@@ -279,6 +283,9 @@ def import_results(
         [model.hexhash for model in models_to_import] if models_to_import else []
     )
 
+    results_path = Path(results_path)
+    other_results_path = Path(other_results_path)
+
     with model_db(other_data_path) as other_db:
         for current_hash, data in other_db.items():
             with model_db(data_path) as db:
@@ -291,21 +298,23 @@ def import_results(
                     logging.info(f"Skipping {current_hash}.")
                     continue
 
+                this_path = Path(data_path) / data["data_path"]
+                this_path_tmp = this_path.with_suffix(".part")
+                other_path = Path(other_data_path) / data["data_path"]
+
                 if current_hash not in db:
                     do_import = True
                 elif "data_path" not in db[current_hash]:
                     do_import = True
                 elif is_smaller(
-                    Path(data_path) / db[current_hash]["data_path"],
-                    Path(other_data_path) / data["data_path"],
+                    this_path,
+                    other_path,
                 ):
                     do_import = True
 
-                if do_import:
-                    this_path = Path(data_path) / data["data_path"]
-                    this_path_tmp = this_path.with_suffix(".part")
-                    other_path = Path(other_data_path) / data["data_path"]
+                logging.info(f"Not importing {current_hash}.")
 
+                if do_import:
                     config = data["model_config"]
                     logging.warning(f"Importing {other_path} to {this_path}.")
                     logging.warning(f"The model description is '{config.description}'.")
@@ -317,10 +326,29 @@ def import_results(
                         continue
 
                     this_path.parents[0].mkdir(exist_ok=True, parents=True)
-
                     if is_smaller(this_path, other_path):
                         shutil.copy2(other_path, this_path_tmp)
+                        os.system("sync")
                         shutil.move(this_path_tmp, this_path)
+
+                        if "analysis_files" in data:
+                            for fname in data["analysis_files"].values():
+                                other_path = other_results_path / fname
+
+                                for (
+                                    other_sub_path
+                                ) in hopsflow.util.get_all_snaphot_paths(other_path):
+                                    this_path = results_path / other_sub_path.name
+                                    this_path_tmp = this_path.with_suffix(".tmp")
+
+                                    logging.warning(
+                                        f"Importing {other_path} to {this_path}."
+                                    )
+
+                                    if other_sub_path.exists():
+                                        shutil.copy2(other_sub_path, this_path_tmp)
+                                        os.system("sync")
+                                        shutil.move(this_path_tmp, this_path)
 
                     db[current_hash] = data
 
