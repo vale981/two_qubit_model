@@ -194,8 +194,7 @@ class OttoEngine(QubitModelMutliBath):
     """The time resolution relative to the period of modulation."""
 
     shift_to_resonance: tuple[bool, bool] = field(default_factory=lambda: (True, True))
-
-    """Weather to to shift the spectral densities to the resonance point."""
+    """Whether to to shift the spectral densities to the resonance point."""
 
     @property
     def τ_max(self) -> float:
