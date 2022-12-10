@@ -312,7 +312,8 @@ def import_results(
                 ):
                     do_import = True
 
-                logging.info(f"Not importing {current_hash}.")
+                if not do_import:
+                    logging.info(f"Not importing {current_hash}.")
 
                 if do_import:
                     config = data["model_config"]
