@@ -14,6 +14,7 @@ from hops.util.dynamic_matrix import (
     SmoothStep,
     Periodic,
     MatrixType,
+    Shift,
 )
 from .one_qubit_model import QubitModelMutliBath
 from .utility import linspace_with_strobe, strobe_times
@@ -40,6 +41,7 @@ class SmoothlyInterpolatdPeriodicMatrix(DynamicMatrix):
         being used.  See also :any:`SmoothStep`.
     :param amplitudes: The amplitudes of the modulation.
     :param deriv: The order of derivative of the matrix.
+    :param amplitudes: The amplitudes of the modulation.
     """
 
     def __init__(
@@ -183,6 +185,9 @@ class OttoEngine(QubitModelMutliBath):
     :any:`SmoothlyInterpolatdPeriodicMatrix`.  If no timing is given,
     modulation is disabled.
     """
+
+    L_shift: tuple[float, float] = field(default_factory=lambda: (0, 0))
+    """The time shift of the ``L`` modulation."""
 
     orders_L: tuple[Orders, Orders] = field(default_factory=lambda: ((2, 2), (2, 2)))
     """The smoothness of the modulation of ``L``."""
@@ -338,16 +343,21 @@ class OttoEngine(QubitModelMutliBath):
     @property
     def coupling_operators(self) -> list[DynamicMatrix]:
         return [
-            ConstantMatrix(L_i)
-            if timings is None
-            else SmoothlyInterpolatdPeriodicMatrix(
-                (np.zeros_like(L_i), L_i),
-                timings,
-                self.Θ,
-                orders,
-                (0, 1),
+            Shift(
+                ConstantMatrix(L_i)
+                if timings is None
+                else SmoothlyInterpolatdPeriodicMatrix(
+                    (np.zeros_like(L_i), L_i),
+                    timings,
+                    self.Θ,
+                    orders,
+                    (0, 1),
+                ),
+                shift * self.Θ,
             )
-            for L_i, timings, orders in zip(self.L, self.timings_L, self.orders_L)
+            for L_i, timings, orders, shift in zip(
+                self.L, self.timings_L, self.orders_L, self.L_shift
+            )
         ]
 
     @property
@@ -406,7 +416,7 @@ class OttoEngine(QubitModelMutliBath):
         if steady_mask[idx:].all():
             return int(idx)
 
-        return False
+        return None
 
     def get_steady_values(self, value: EnsembleValue, *args, **kwargs):
         """
@@ -459,7 +469,14 @@ class OttoEngine(QubitModelMutliBath):
         Calculate the mean steady state power.  For the arguments see
         :any:`steady_energy_change`.
         """
-        return self.steady_total_energy_change(*args, **kwargs) * (1 / self.Θ)
+
+        _, indices = self.strobe
+        steady_idx = self.steady_index(*args, **kwargs)
+
+        if steady_idx is None:
+            raise RuntimeError("No steady state available.")
+
+        return self.total_power().slice(slice(indices[steady_idx], None, 1)).mean
 
     def efficiency(self, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs):
         """
