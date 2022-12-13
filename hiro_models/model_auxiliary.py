@@ -267,6 +267,7 @@ def import_results(
     other_results_path: Union[Path, str] = "./results_other",
     interactive: bool = False,
     models_to_import: Optional[Iterable[Model]] = None,
+    force: bool = False,
 ):
     """
     Imports results from the ``other_data_path`` into the
@@ -327,7 +328,8 @@ def import_results(
                         continue
 
                     this_path.parents[0].mkdir(exist_ok=True, parents=True)
-                    if is_smaller(this_path, other_path):
+
+                    if is_smaller(this_path, other_path) or force:
                         shutil.copy2(other_path, this_path_tmp)
                         os.system("sync")
                         shutil.move(this_path_tmp, this_path)
@@ -409,6 +411,14 @@ def migrate_db_to_new_hashes(
             new_hash = data["model_config"].hexhash
             del db[old_hash]
             db[new_hash] = data
+
+            if "analysis_files" in db[new_hash]:
+                for key, value in (db[new_hash]["analysis_files"]).items():
+                    import pdb
+
+                    db[new_hash]["analysis_files"][key] = value.replace(
+                        old_hash, new_hash
+                    )
 
             for result in os.listdir(results_path):
                 if old_hash in result:
