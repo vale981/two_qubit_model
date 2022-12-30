@@ -389,34 +389,44 @@ class OttoEngine(QubitModelMutliBath):
     #     )
 
     def steady_index(
-        self, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs
-    ) -> Optional[int]:
+        self,
+        fraction: Optional[float] = None,
+        observable: Optional[EnsembleValue] = None,
+        data: Optional[HIData] = None,
+        **kwargs
+    ):
         """
-        Determine using the system energy (``data`` and ``kwargs`` are
-        being passed to :any:`system_energy`) when the periodic steady
-        state has been reached.
+        Determine using the system energy or the ``observable``
+        (``data`` and ``kwargs`` are being passed to
+        :any:`system_energy`) when the periodic steady state has been
+        reached.
 
-        This is being done by comparing the change of the system
-        energy from cycle to cycle against the standard deviation of
-        this value multiplied by ``σ_factor``.
+        This is being done by comparing the change of the observable
+        to the next cycle and finding the time where it is compatible
+        with its value in the next cycle in the ``fraction`` of cases.
+        The default value for ``fraction`` is ``0.68`` (one sigma).
         """
+
         _, indices = self.strobe
 
-        Δ_system = abs(
-            (
-                self.system_energy(data, **kwargs).slice(indices[1:])
-                - self.system_energy(data, **kwargs).slice(indices[:-1])
-            )
-            * (1 / get_energy_gap(self.H(0)))
+        fraction = fraction or 0.68
+        observable = observable or self.system_energy(data, **kwargs)
+
+        cycles = [
+            observable.slice(slice(begin, end))
+            for end, begin in zip(indices[1:], indices[:-1])
+        ]
+        consistency = np.array(
+            [
+                nxt.consistency(this) / 100 > fraction
+                for nxt, this in zip(cycles[1:], cycles[:-1])
+            ]
         )
 
-        steady_mask = Δ_system.value < Δ_system.σ * σ_factor
-        idx = np.argmax(steady_mask) + 1
+        if sum(consistency) == 0:
+            return None
 
-        if steady_mask[idx:].all():
-            return int(idx)
-
-        return None
+        return np.argmax(consistency) + 1
 
     def get_steady_values(self, value: EnsembleValue, *args, **kwargs):
         """
@@ -432,7 +442,7 @@ class OttoEngine(QubitModelMutliBath):
         return value.slice(indices[steady_idx:])
 
     def steady_total_energy_change(
-        self, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs
+        self, fraction: Optional[float] = None, data: Optional[HIData] = None, **kwargs
     ):
         """
         The steady energy change computed from ``data`` or online
@@ -441,14 +451,18 @@ class OttoEngine(QubitModelMutliBath):
         """
 
         energies = self.get_steady_values(
-            self.total_energy_from_power(data, **kwargs), σ_factor, data, **kwargs
+            self.total_energy_from_power(data, **kwargs), fraction, data, **kwargs
         )
         Δ_energies = energies.slice(slice(1, None)) - energies.slice(slice(0, -1))
 
         return Δ_energies.mean
 
     def steady_bath_energy_change(
-        self, bath: int, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs
+        self,
+        bath: int,
+        fraction: Optional[float] = None,
+        data: Optional[HIData] = None,
+        **kwargs
     ):
         """
         The steady energy change computed from ``data`` or online
@@ -457,7 +471,7 @@ class OttoEngine(QubitModelMutliBath):
         """
 
         energies = self.get_steady_values(
-            self.bath_energy(data, **kwargs).for_bath(bath), σ_factor, data, **kwargs
+            self.bath_energy(data, **kwargs).for_bath(bath), fraction, data, **kwargs
         )
 
         Δ_energies = energies.slice(slice(1, None)) - energies.slice(slice(0, -1))
@@ -478,15 +492,17 @@ class OttoEngine(QubitModelMutliBath):
 
         return self.total_power().slice(slice(indices[steady_idx], None, 1)).mean
 
-    def efficiency(self, σ_factor: float = 2, data: Optional[HIData] = None, **kwargs):
+    def efficiency(
+        self, fraction: Optional[float] = None, data: Optional[HIData] = None, **kwargs
+    ):
         """
         Calculate the steady state efficiency.  For the arguments see
         :any:`steady_energy_change`.
         """
 
-        Δ_bath = self.steady_bath_energy_change(1, σ_factor, data, **kwargs)
+        Δ_bath = self.steady_bath_energy_change(1, fraction, data, **kwargs)
 
-        return self.steady_total_energy_change(σ_factor, data, **kwargs) / Δ_bath.mean
+        return self.steady_total_energy_change(fraction, data, **kwargs) / Δ_bath.mean
 
 
 def normalize_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:
