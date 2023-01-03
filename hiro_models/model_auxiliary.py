@@ -268,6 +268,7 @@ def import_results(
     interactive: bool = False,
     models_to_import: Optional[Iterable[Model]] = None,
     force: bool = False,
+    skip_checkpoints: bool = False,
 ):
     """
     Imports results from the ``other_data_path`` into the
@@ -278,6 +279,9 @@ def import_results(
 
     If ``models_to_import`` is specified, only data of models matching
     those in ``models_to_import`` will be imported.
+
+    If ``skip_checkpoints`` is :any:`False`, the result checkpoints
+    won't be imported.
     """
 
     hashes_to_import = (
@@ -307,9 +311,12 @@ def import_results(
                     do_import = True
                 elif "data_path" not in db[current_hash]:
                     do_import = True
-                elif is_smaller(
-                    this_path,
-                    other_path,
+                elif (
+                    is_smaller(
+                        this_path,
+                        other_path,
+                    )
+                    or force
                 ):
                     do_import = True
 
@@ -338,9 +345,11 @@ def import_results(
                             for fname in data["analysis_files"].values():
                                 other_path = other_results_path / fname
 
-                                for (
-                                    other_sub_path
-                                ) in hopsflow.util.get_all_snaphot_paths(other_path):
+                                for other_sub_path in (
+                                    [other_path]
+                                    if skip_checkpoints
+                                    else hopsflow.util.get_all_snaphot_paths(other_path)
+                                ):
                                     this_path = results_path / other_sub_path.name
                                     this_path_tmp = this_path.with_suffix(".tmp")
 
