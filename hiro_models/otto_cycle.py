@@ -428,21 +428,18 @@ class OttoEngine(QubitModelMutliBath):
 
         return np.argmax(consistency) + 1
 
-    def get_steady_values(self, value: EnsembleValue, *args, **kwargs):
+    def get_steady_values(self, value: EnsembleValue, steady_idx: int, *args, **kwargs):
         """
         Get the value of ``value`` at the steady state indices.  For
         the rest arguments sse :any:`steady_index`.
         """
 
         _, indices = self.strobe
-        steady_idx = self.steady_index(*args, **kwargs)
 
-        if steady_idx is None:
-            raise RuntimeError("No steady state available.")
         return value.slice(indices[steady_idx:])
 
     def steady_total_energy_change(
-        self, fraction: Optional[float] = None, data: Optional[HIData] = None, **kwargs
+        self, steady_idx: int, data: Optional[HIData] = None, **kwargs
     ):
         """
         The steady energy change computed from ``data`` or online
@@ -451,18 +448,14 @@ class OttoEngine(QubitModelMutliBath):
         """
 
         energies = self.get_steady_values(
-            self.total_energy_from_power(data, **kwargs), fraction, data, **kwargs
+            self.total_energy_from_power(data, **kwargs), steady_idx, data, **kwargs
         )
         Δ_energies = energies.slice(slice(1, None)) - energies.slice(slice(0, -1))
 
         return Δ_energies.mean
 
     def steady_bath_energy_change(
-        self,
-        bath: int,
-        fraction: Optional[float] = None,
-        data: Optional[HIData] = None,
-        **kwargs
+        self, bath: int, steady_idx: int, data: Optional[HIData] = None, **kwargs
     ):
         """
         The steady energy change computed from ``data`` or online
@@ -471,38 +464,32 @@ class OttoEngine(QubitModelMutliBath):
         """
 
         energies = self.get_steady_values(
-            self.bath_energy(data, **kwargs).for_bath(bath), fraction, data, **kwargs
+            self.bath_energy(data, **kwargs).for_bath(bath), steady_idx, data, **kwargs
         )
 
         Δ_energies = energies.slice(slice(1, None)) - energies.slice(slice(0, -1))
 
         return Δ_energies.mean
 
-    def power(self, *args, **kwargs):
+    def power(self, steady_idx: int, *args, **kwargs):
         """
         Calculate the mean steady state power.  For the arguments see
         :any:`steady_energy_change`.
         """
 
         _, indices = self.strobe
-        steady_idx = self.steady_index(*args, **kwargs)
-
-        if steady_idx is None:
-            raise RuntimeError("No steady state available.")
 
         return self.total_power().slice(slice(indices[steady_idx], None, 1)).mean
 
-    def efficiency(
-        self, fraction: Optional[float] = None, data: Optional[HIData] = None, **kwargs
-    ):
+    def efficiency(self, steady_idx: int, data: Optional[HIData] = None, **kwargs):
         """
         Calculate the steady state efficiency.  For the arguments see
         :any:`steady_energy_change`.
         """
 
-        Δ_bath = self.steady_bath_energy_change(1, fraction, data, **kwargs)
+        Δ_bath = self.steady_bath_energy_change(1, steady_idx, data, **kwargs)
 
-        return self.steady_total_energy_change(fraction, data, **kwargs) / Δ_bath.mean
+        return self.steady_total_energy_change(steady_idx, data, **kwargs) / Δ_bath.mean
 
 
 def normalize_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:
