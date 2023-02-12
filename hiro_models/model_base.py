@@ -20,6 +20,7 @@ from collections.abc import Callable
 from datetime import datetime
 import pickle
 import os
+from pathlib import Path
 
 
 @dataclass
@@ -457,6 +458,8 @@ class Model(ABC):
         system_power_worker = hopsflow.util.make_operator_expectation_task(
             self.system.derivative(), self.t, normalize=True, real=True
         )
+
+        Path(results_directory).mkdir(parents=True, exist_ok=True)
 
         aggregates = [None for _ in range(5)]
         paths = [
