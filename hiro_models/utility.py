@@ -257,7 +257,7 @@ def strobe_times(time: NDArray[np.float64], frequency: float, tolerance: float =
 
     stroboscope_interval = 2 * np.pi / frequency
     sorted_times = np.sort(time)
-    tolerance = min(tolerance, (sorted_times[1:] - sorted_times[:-1]).min() / 2)
+
     strobe_indices = np.where((time % stroboscope_interval) <= tolerance)[0]
 
     if len(strobe_indices) == 0:

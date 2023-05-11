@@ -224,7 +224,8 @@ class OttoEngine(QubitModelMutliBath):
         Returns a tuple with the times where a cycle is complete and
         their corresponding indices.
         """
-        return strobe_times(self.t, self.Ω)
+
+        return strobe_times(self.t, self.Ω, tolerance=1e-3)
 
     @t.setter
     def t(self, _):
