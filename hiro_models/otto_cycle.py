@@ -151,6 +151,13 @@ class OttoEngine(QubitModelMutliBath):
     is zero and its largest one is one.
     """
 
+    H_bias: DynamicMatrix = field(default_factory=lambda: ConstantMatrix(np.zeros(2)))  # type: ignore
+    """
+    The :math:`H_B` shape ``(2, 2)``.
+
+    This bias will be added to the system Hamiltonian unaltered.
+    """
+
     L: tuple[np.ndarray, np.ndarray] = field(
         default_factory=lambda: tuple([(1 / 2 * (qt.sigmax().full())), (1 / 2 * (qt.sigmax().full()))])  # type: ignore
     )
@@ -328,12 +335,15 @@ class OttoEngine(QubitModelMutliBath):
         The modulation is cyclical with period :any:`Θ`.
         """
 
-        return SmoothlyInterpolatdPeriodicMatrix(
-            (self.H_0, self.H_1),
-            self.timings_H,
-            self.Θ,
-            self.orders_H,
-            (1, self.Δ + 1),
+        return (
+            SmoothlyInterpolatdPeriodicMatrix(
+                (self.H_0, self.H_1),
+                self.timings_H,
+                self.Θ,
+                self.orders_H,
+                (1, self.Δ + 1),
+            )
+            + self.H_bias
         )
 
     # we black-hole the H setter in this model
