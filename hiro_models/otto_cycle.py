@@ -151,7 +151,7 @@ class OttoEngine(QubitModelMutliBath):
     is zero and its largest one is one.
     """
 
-    H_bias: DynamicMatrix = field(default_factory=lambda: ConstantMatrix(np.zeros(2)))  # type: ignore
+    H_bias: DynamicMatrix = field(default_factory=lambda: ConstantMatrix(np.zeros((2, 2))))  # type: ignore
     """
     The :math:`H_B` shape ``(2, 2)``.
 
