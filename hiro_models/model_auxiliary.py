@@ -14,7 +14,7 @@ from pathlib import Path
 from .one_qubit_model import QubitModel, QubitModelMutliBath
 from .two_qubit_model import TwoQubitModel
 from .otto_cycle import OttoEngine
-from collections.abc import Sequence, Iterator, Iterable
+from collections.abc import Sequence, Iterator, Iterable, Callable
 import shutil
 import logging
 import copy
@@ -407,16 +407,23 @@ def cleanup(
 
 
 def migrate_db_to_new_hashes(
-    data_path: str = "./.data", results_path: str = "./results"
+        data_path: str = "./.data", results_path: str = "./results", patch_fn: Optional[Callable] = None
 ):
     """
     Recomputes all the hashes of the models in the database under
-    ``data_path`` and updates the database.
+    ``data_path`` and updates the database. The ``patch_fn`` receives
+    the database data and can return an arbitrarily modified version
+    of it from which the new hash is computed. This is useful if some
+    miss-configuration in the models has to be corrected.
     """
 
     with model_db(data_path) as db:
         for old_hash in list(db.keys()):
             data = copy.deepcopy(db[old_hash])
+
+            if patch_fn:
+                data = patch_fn(data)
+
             new_hash = data["model_config"].hexhash
             del db[old_hash]
             db[new_hash] = data
