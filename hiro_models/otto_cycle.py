@@ -232,7 +232,9 @@ class OttoEngine(QubitModelMutliBath):
         their corresponding indices.
         """
 
-        return strobe_times(self.t, self.Ω, tolerance=1e-3)
+        times = np.arange(self.num_cycles + 1) * self.Θ
+        indices = np.searchsorted(self.t, (np.arange(self.num_cycles + 1) * 2 * np.pi / self.Ω))
+        return times, indices
 
     @t.setter
     def t(self, _):
