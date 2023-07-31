@@ -41,7 +41,6 @@ class SmoothlyInterpolatdPeriodicMatrix(DynamicMatrix):
         being used.  See also :any:`SmoothStep`.
     :param amplitudes: The amplitudes of the modulation.
     :param deriv: The order of derivative of the matrix.
-    :param amplitudes: The amplitudes of the modulation.
     """
 
     def __init__(
