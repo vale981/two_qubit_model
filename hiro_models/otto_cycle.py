@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import SupportsFloat, Union
 import numpy as np
 import qutip as qt
+import scipy.optimize
 
 from beartype import beartype, BeartypeConf
 from scipy.optimize import minimize_scalar
@@ -157,6 +158,13 @@ class OttoEngine(QubitModelMutliBath):
     This bias will be added to the system Hamiltonian unaltered.
     """
 
+    normalize_bias: bool = False
+    """
+    Whether to normalize the total Hamiltonian in the presence of a bias
+    so that the energy gaps of the Hamiltonian take on the specified
+    values.
+    """
+
     L: tuple[np.ndarray, np.ndarray] = field(
         default_factory=lambda: tuple([(1 / 2 * (qt.sigmax().full())), (1 / 2 * (qt.sigmax().full()))])  # type: ignore
     )
@@ -232,7 +240,9 @@ class OttoEngine(QubitModelMutliBath):
         """
 
         times = np.arange(self.num_cycles + 1) * self.Θ
-        indices = np.searchsorted(self.t, (np.arange(self.num_cycles + 1) * 2 * np.pi / self.Ω))
+        indices = np.searchsorted(
+            self.t, (np.arange(self.num_cycles + 1) * 2 * np.pi / self.Ω)
+        )
         return times, indices
 
     @t.setter
@@ -325,10 +335,10 @@ class OttoEngine(QubitModelMutliBath):
         r"""
         Returns the modulated system Hamiltonian.
 
-        The system hamiltonian will always be :math:`ω_{\max} * H_1 +
+        The system Hamiltonian will always be :math:`ω_{\max} * H_1 +
         (ω_{\max} - ω_{\min}) * f(τ) * H_1` where ``H_0`` is a fixed
         matrix and :math:`f(τ)` models the time dependence.  The time
-        dependce is implemented via
+        dependence is implemented via
         :any:`SmoothlyInterpolatdPeriodicMatrix` and leads to a
         modulation of the levelspacing between ``ε_min=1`` and
         ``ε_max`` so that ``ε_max/ε_min - 1 = Δ``.
@@ -336,13 +346,36 @@ class OttoEngine(QubitModelMutliBath):
         The modulation is cyclical with period :any:`Θ`.
         """
 
+        Hs = tuple(normalize_hamiltonian(H) for H in (self.H_0, self.H_1))
+        H_bias = self.H_bias
+
+        compression_factor = 1
+        expansion_factor = self.Δ + 1
+
+        if self.normalize_bias:
+            compression_factor = round(
+                scipy.optimize.minimize_scalar(
+                    lambda s: (get_energy_gap(Hs[0] * s + H_bias(0)) - 1) ** 2, tol=1e-6
+                ).x,
+                4,
+            )
+
+            expansion_factor = round(
+                scipy.optimize.minimize_scalar(
+                    lambda s: (get_energy_gap(Hs[1] * s + H_bias(0)) - (1 + self.Δ))
+                    ** 2,
+                    tol=1e-6,
+                ).x,
+                4,
+            )
+
         return (
             SmoothlyInterpolatdPeriodicMatrix(
-                (self.H_0, self.H_1),
+                Hs,
                 self.timings_H,
                 self.Θ,
                 self.orders_H,
-                (1, self.Δ + 1),
+                (compression_factor, expansion_factor),
             )
             + self.H_bias
         )
@@ -511,6 +544,20 @@ def normalize_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:
         hamiltonian.shape[0], dtype=hamiltonian.dtype
     )
     normalized /= (eigvals.max() - eigvals.min()).real
+
+    return normalized
+
+
+def normalize_dynamic_hamiltonian(
+    hamiltonian: DynamicMatrix, t: float = 0
+) -> np.ndarray:
+    at_t = hamiltonian(t)
+    eigvals = np.linalg.eigvals(at_t)
+
+    normalized = hamiltonian - eigvals.min() * np.eye(
+        hamiltonian.shape[0], dtype=at_t.dtype
+    )
+    normalized = normalized * (1 / (eigvals.max() - eigvals.min()).real)
 
     return normalized
 
